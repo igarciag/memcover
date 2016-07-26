@@ -1,0 +1,24 @@
+{
+  "name": "memcover",
+  "version": "0.0.0",
+  "description": "The web",
+  "main": "webpack.confing.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "BSD-2-Clause",
+  "dependencies": {
+    "react": "~0.13.1",
+    "when": "~3.7.2",
+    "fixed-data-table": "~0.4.6",
+    "react-grid-layout": "~0.8.5",
+    "object-assign": "~2.0.0",
+    "react-bootstrap": "~0.23.7",
+    "classnames": "~2.1.1",
+    "c3": "~0.4.10"
+  },
+  "devDependencies": {
+    "jsx-loader": "~0.12.2"
+  }
+}

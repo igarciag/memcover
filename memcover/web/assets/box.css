@@ -1,0 +1,36 @@
+svg.box-svg {
+    shape-rendering: crispEdges;
+}
+
+.box {
+  font: 10px sans-serif;
+}
+
+.boxChart .axis line, .boxChart .axis path {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.box line, .box rect, .box circle {
+  fill: #fff;
+  stroke: #000;
+  stroke-width: 1px;
+}
+
+.box.subset1 line, .box.subset1 rect  {
+  stroke: rgb(228,26,28);
+}
+
+.box.subset2 line, .box.subset2 rect {
+  stroke: rgb(55,126,184);
+}
+
+.box .center {
+  stroke-dasharray: 3,3;
+}
+
+.box .outlier {
+  fill: none;
+  stroke: #777;
+}

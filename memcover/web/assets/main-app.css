@@ -1,0 +1,16 @@
+body {
+    padding: 50px 0 200px 0;
+}
+
+.modal-content .tab-content {
+    padding-top: 10px;
+}
+
+.three-col {
+    -moz-column-count: 3;
+    -moz-column-gap: 20px;
+    -webkit-column-count: 3;
+    -webkit-column-gap: 20px;
+    min-height: initial; /* fix chrome */
+    z-index: 0;          /* fix chrome */
+}

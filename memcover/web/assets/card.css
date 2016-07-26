@@ -1,0 +1,41 @@
+.card {
+    overflow: hidden;
+    text-align: center;
+}
+
+.card .card-anchor {
+    cursor: all-scroll;
+}
+
+.card .card-header {
+    padding: 0 0px 7px 0px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    position: relative;
+}
+
+.card .card-content {
+    overflow-y: auto;
+}
+
+.card .card-close {
+    position:absolute;
+    right: 0px;
+    top: 3px;
+    z-index: 10;
+}
+
+.card .card-menu {
+    position:absolute;
+    right: 27px;
+    top: 3px;
+    z-index: 10;
+}
+
+.card .card-move {
+    position:absolute;
+    left: 0px;
+    top: 3px;
+    z-index: 10;
+}
+
