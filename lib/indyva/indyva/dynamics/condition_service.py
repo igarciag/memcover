@@ -35,6 +35,7 @@ class ConditionService(INamed):
         dispatcher.add_method(self.expose_condition)
         dispatcher.add_method(self.del_condition)
         dispatcher.add_method(self.update_conditions)
+        dispatcher.add_method(self.update_conditions2)
         # Condition Properties
         dispatcher.add_method(partial(self._proxy_property, 'name'), 'name')
         dispatcher.add_method(partial(self._proxy_property, 'data'), 'data')
@@ -112,8 +113,46 @@ class ConditionService(INamed):
         self._conditions.pop(oid)
 
     def update_conditions(self): # Update all conditions (variable _domain)
+        from pprint import pprint
         for ind in self._conditions.keys():
             cond = self._conditions[ind]
             cond._sieve._domain = set(cond._sieve._data.distinct(cond._sieve._data_index)) # UPDATE
+            #domm = cond._sieve._data.aggregate([{'$match': {cond._attr: {'$type': 1}}},  # Only numbers
+            #                         {'$group':
+            #                          {'_id': {},
+            #                           'min': {'$min': "$"+cond._attr},
+            #                           'max': {'$max': "$"+cond._attr}}}]).get_data()
+            #ran = cond._sieve._data.distinct(cond._attr)
+            #min_ran = min(ran)
+            #max_ran = max(ran)
+            #cond._range = {'min': min_ran, 'max': max_ran}
+            #cond._sieve._domain = {'min': min_ran, 'max': max_ran}
+            #pprint(cond._sieve._domain)
 
         return self._conditions
+
+    def update_conditions2(self, conditions): # Update all conditions (variable _domain)
+        from pprint import pprint
+        for ind in conditions.keys():
+            cond = conditions[ind]['grammar']
+            condition = self._conditions[cond['name']]
+            if cond['type'] == "categorical":
+                condition._sieve._domain = set(condition._sieve._data.distinct(condition._sieve._data_index)) # UPDATE
+                cond['included_categories'] = list(set(condition._sieve._data.distinct(condition._sieve._data_index)))
+                cond['excluded_categories'] = []
+            elif cond['type'] == "range":
+                ran = condition._sieve._data.distinct(condition._attr)
+                min_ran = min(ran)
+                max_ran = max(ran)
+                if max_ran == min_ran:
+                    min_ran -= 1
+                    max_ran += 1
+                relative_max = condition._to_relative(condition._range['max'])
+                relative_min = condition._to_relative(condition._range['min'])
+                
+                condition._domain = {'min': min_ran, 'max': max_ran}
+                condition._range = {'min': min_ran, 'max': max_ran, 'relative_min': relative_min, 'relative_max': relative_max}
+                cond['domain'] = condition._domain
+                cond['range'] = condition._range
+
+        return conditions

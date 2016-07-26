@@ -131,7 +131,8 @@
 	var Card = __webpack_require__(/*! ./card */ 13);
 	var CardCreationMenu = __webpack_require__(/*! ./cardCreationMenu */ 14);
 	var AnalysisMenu = __webpack_require__(/*! ./analysisMenu */ 15);
-	
+	var FileMenu = __webpack_require__(/*! ./fileMenu */ 208);
+
 	var PCPChart = reactify(__webpack_require__(/*! ./pcpChart */ 16), "PCPChart");
 	var BoxChart = reactify(__webpack_require__(/*! ./boxChart */ 17), "BoxChart");
 	var ScatterChart = reactify(__webpack_require__(/*! ./scatterChart */ 18), "ScatterChart");
@@ -224,8 +225,6 @@
 	
 		var method = "DynSelectSrv.new_" + kind + "_condition"
 
-		console.log("SELECTION:", selection);
-		console.log("COLUMN:", column);
 		var promise = rpc.call(method, [selection, column])
 			.catch(function(e){console.error(e);});
 	
@@ -487,9 +486,16 @@
 
 				reader.onload = (function(theFile) {
 					return function (e) {
+						var ext = theFile.name.split('.')[theFile.name.split('.').length - 1];
 						var res = this.result;
+
+						console.log("EXT:", ext);
+						if( ext == 'xls' || ext == 'xlsx' ){
+							alert("ARCHIVO XLS");
+							return;
+						}
+
 						var tableName = Object.keys(self.state.tables)[0];
-						console.log("RES:", res);
 
 						function getQuantitativeAttrs(schema) {
 							var attrs = _.pick(schema.attributes, function(value, key) {
@@ -499,8 +505,7 @@
 						}
 
 						console.log("LOADED:", theFile.name);
-						var ext = theFile.name.split('.');
-						if ( accept_schema_ext.indexOf(ext[ext.length - 1]) != -1 ) { // Schema file (.json)
+						if ( accept_schema_ext.indexOf(ext) != -1 ) { // Schema file (.json)
 							var res_json = JSON.parse(res);
 							
 							//Check if index exists and its an attribute
@@ -528,8 +533,6 @@
 						}
 						else { // Data file (.csv, .xls...)
 
-							console.log("COLS_OLD2:", cols_old);
-							console.log("LEN:", len);
 							// Check if schema and data are consistent
 							var cols_new = res.split("\n")[0].split(",");
 							//var cols_old = Object.keys(self.state.tables[tableName].schema.attributes);
@@ -564,7 +567,6 @@
 									self.state.tables[tableName].schema.attributes = _.mapValues(self.state.tables[tableName].schema.attributes, function(v,k){v.name = k; return v;});
 									self.state.tables[tableName].schema.quantitative_attrs = getQuantitativeAttrs(sch);
 									//self.setState({"tables": self.state.tables});
-									console.log("INFERED SCHEMA");
 								}
 							});
 
@@ -575,13 +577,45 @@
 							});
 
 							// Update conditions (filters)
+
 							rpc.call("ConditionSrv.update_conditions", [])
-								.then( function(condition){ 
-									for (var cond in condition) {
-										Store.includeAll(cond).then(Store.linkCondition.bind(self,cond));
+							.then( function(condition){
+								for (var cond in condition) {
+									Store.includeAll(cond).then(Store.linkCondition.bind(self,cond));
+								}
+							});
+
+							var selection = self.state.tables[tableName].selection;
+							if ( self.state.conditions[tableName] != undefined && self.state.conditions[tableName][selection] != undefined){
+									rpc.call("ConditionSrv.update_conditions2", [self.state.conditions[tableName][selection]])
+									.then( function(conditions){
+											self.state.conditions[tableName][selection] = conditions;
+											self.setState({"conditions": self.state.conditions});
+									});
+							}
+							//Remove cards with "old" columns
+							for (var card in self.state.cards){
+								if( self.state.cards[card].kind == 'pcp' || self.state.cards[card].kind == 'table'){
+									for (var col in self.state.cards[card].config.columns){
+										if( self.state.cards[card].config.columns[col].included === true && diff1.indexOf(self.state.cards[card].config.columns[col].name) != -1 ){
+											self.removeCard(card);
+											break;
+										}
 									}
-								});
+								}
+								else if( self.state.cards[card].kind == 'scatter' ) {
+									if ( diff1.indexOf(self.state.cards[card].config.xColumn) != -1 || diff1.indexOf(self.state.cards[card].config.yColumn) != -1 ) self.removeCard(card);
+								}
+								else if( self.state.cards[card].kind == 'box' ) {
+									if ( diff1.indexOf(self.state.cards[card].config.attr) != -1 || diff1.indexOf(self.state.cards[card].config.facetAttr) != -1 ) self.removeCard(card);
+								}
+								else if( self.state.cards[card].kind == 'categoricalFilter' || self.state.cards[card].kind == 'rangeFilter' ) {
+									if ( diff1.indexOf(self.state.cards[card].config.attr) != -1 || diff1.indexOf(self.state.cards[card].config.facetAttr) != -1 ) self.removeCard(card);
+								}
+							}
+
 							alert("DATA UPLOADED '"+theFile.name+"'\n");
+
 						//}
 						}
 						console.log("NEW STATE:", self.state);
@@ -812,6 +846,8 @@
 		
 		
 			renderRangeFilterCard: function(card, size) {
+			console.log("RENDER RANGE..........", card);
+
 			var table = card.config.table;
 			var column = card.config.column;
 			var selection = this.state.tables[table].selection;
@@ -938,10 +974,18 @@
 				style:  {"margin-right":10}, 
 				tables: this.state.tables, 
 				onExport: function(table){Store.exportTable(table, table.name);},
-				onOpenData: self.loadData,
-				onConcatData: self.concatData,
 				onOpen: self.loadAnalysis,
 		    onSave: self.saveAnalysis.bind(self, self.state)
+				}
+	
+			),
+
+				React.createElement(FileMenu, {className: "navbar-btn pull-right", 
+				style:  {"margin-right":10}, 
+				tables: this.state.tables, 
+				onExport: function(table){Store.exportTable(table, table.name);},
+				onOpenData: self.loadData,
+				onConcatData: self.concatData,
 				}
 	
 			)
@@ -2686,19 +2730,9 @@
 	    openFileMenu: function(){
 		this.refs.openFile.getDOMNode().click();
 	    },
-
-	    openFileMenuData: function(){
-		this.refs.openFileData.getDOMNode().click();
-	    },
-
-			concatFileMenuData: function(){
-		this.refs.concatFileData.getDOMNode().click();
-	    },
 	
 	    render: function() {
 		var openFileMenu = this.openFileMenu; 
-		var openFileMenuData = this.openFileMenuData; 
-		var concatFileMenuData = this.concatFileMenuData; 
 		var onSave = this.props.onSave;
 		var onOpen = this.props.onOpen;
 		var onOpenData = this.props.onOpenData;
@@ -2713,11 +2747,7 @@
 			    title: this.props.label}, 
 	
 		      //React.createElement(BS.MenuItem, {header: true}, " File "), 
-		      React.createElement(BS.MenuItem, {onSelect: openFileMenuData}, " File "),
-		      React.createElement("input", {style: {"display":"none"}, type: "file", multiple:"multiple", accept: ".csv, .xlsx, .xlsm, .xls, .xlt, .json", ref: "openFileData", onChange: onOpenData}),
-		      React.createElement(BS.MenuItem, {onSelect: concatFileMenuData}, " Concat data "),
-		      React.createElement("input", {style: {"display":"none"}, type: "file", multiple:"multiple", accept: ".csv, .xlsx, .xlsm, .xls, .xlt", ref: "concatFileData", onChange: onConcatData}),
-					React.createElement(BS.MenuItem, {onSelect: openFileMenu}, " Open Analysis ... "), 
+		      React.createElement(BS.MenuItem, {onSelect: openFileMenu}, " Open Analysis ... "), 
 		      React.createElement("input", {style: {"display":"none"}, type: "file", accept: ".json", ref: "openFile", onChange: onOpen}), 
 		      React.createElement(BS.MenuItem, {onSelect: onSave}, " Save Analysis "), 
 	
@@ -2745,6 +2775,8 @@
   !*** ./pcpChart.js ***!
   \*********************/
 /***/ function(module, exports, __webpack_require__) {
+
+	var alerted = false;
 
 	var d3 = __webpack_require__(/*! d3 */ 23);
 	var _ = __webpack_require__(/*! lodash */ 2);
@@ -2909,6 +2941,14 @@
 	        }
 	
 	        attributes.forEach(function(d) {
+							if(typeof d === 'undefined'){
+								if(alerted == false){
+									alert("There are any target with old columns.\nPlease, remove this targets.");
+									alerted = true;
+								}
+								return;
+							}
+							console.log("D:", d);
 	            var name = d.name;
 	            if (d.attribute_type === 'QUANTITATIVE') {
 	                y[name] = d3.scale.linear()
@@ -33247,6 +33287,77 @@
 	};
 	
 	module.exports = keyMirror;
+
+/***/ },
+/* 208 */
+/*!**************************!*\
+  !*** ./fileMenu.jsx ***!
+  \**************************/
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict'
+	
+	var React = __webpack_require__(/*! react */ 1);
+	var _ = __webpack_require__(/*! lodash */ 2);
+	
+	var BS = __webpack_require__(/*! react-bootstrap */ 24);
+	
+	module.exports = React.createClass({displayName: "exports",
+	
+	    getDefaultProps: function() {
+		return {
+		    tables: {},
+		    label: "File",
+		    header: "Export to excel",
+		    bsStyle: "default"
+		};
+	    },
+
+	    openFileMenuData: function(){
+		this.refs.openFileData.getDOMNode().click();
+	    },
+
+			concatFileMenuData: function(){
+		this.refs.concatFileData.getDOMNode().click();
+	    },
+	
+	    render: function() {
+		var openFileMenuData = this.openFileMenuData; 
+		var concatFileMenuData = this.concatFileMenuData; 
+		var onOpenData = this.props.onOpenData;
+		var onConcatData = this.props.onConcatData;
+		var onExport = this.props.onExport;
+		var header = this.props.header;
+		return (
+	
+	            React.createElement(BS.DropdownButton, {className: this.props.className, 
+			    style: this.props.style, 
+			    bsStyle: this.props.bsStyle, 
+			    title: this.props.label}, 
+	
+		      //React.createElement(BS.MenuItem, {header: true}, " File "), 
+		      React.createElement(BS.MenuItem, {onSelect: openFileMenuData}, " Open "),
+		      React.createElement("input", {style: {"display":"none"}, type: "file", multiple:"2", accept: ".csv, .xlsx, .xlsm, .xls, .xlt, .json", ref: "openFileData", onChange: onOpenData}),
+		      React.createElement(BS.MenuItem, {onSelect: concatFileMenuData}, " Add data "),
+		      React.createElement("input", {style: {"display":"none"}, type: "file", multiple:"multiple", accept: ".csv, .xlsx, .xlsm, .xls, .xlt", ref: "concatFileData", onChange: onConcatData}),
+	
+		      React.createElement(BS.MenuItem, {header: true}, " ", header, " "), 
+		      
+		      
+			  _.values(this.props.tables).map(function(table, i) {
+			      return(
+	                          React.createElement(BS.MenuItem, {eventKey: i, onSelect:  onExport.bind(this, table) }, 
+				  table.name
+				  )
+			      )
+			  })
+		       
+	            )
+		)
+	    }
+	
+	});
+
 
 /***/ }
 /******/ ]);
