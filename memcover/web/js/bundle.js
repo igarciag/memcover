@@ -52,7 +52,9 @@
 	var _ = __webpack_require__(/*! lodash */ 2);
 	var when = __webpack_require__(/*! when */ 5); 
 	
-	var App = __webpack_require__(/*! ./mainApp */ 3); 
+	var App = __webpack_require__(/*! ./mainApp */ 3);
+
+	var XLSX = __webpack_require__(/*! xlsx */ 209);
 	
 	// ----------------------------------------------------------
 	//  Setup indyva's conection 
@@ -488,19 +490,13 @@
 					return function (e) {
 						var ext = theFile.name.split('.')[theFile.name.split('.').length - 1];
 						var res = this.result;
-
 						var tableName = Object.keys(self.state.tables)[0];
 
-						console.log("EXT:", ext);
 						if( ext == 'xls' || ext == 'xlsx' ){
-							alert("ARCHIVO XLS YET UNSUPPORTED");
-							/*var script = document.createElement("script");
-							script.type = "text/javascript";
-							script.src = "/node_modules/xlsjs/xls.js";
-							document.getElementsByTagName("head")[0].appendChild(script);
-							console.log("XLS:", XLS);
-							var cfb = XLS.read(res, {type:'binary'});*/
-							return;
+							//alert("ARCHIVO XLS YET UNSUPPORTED");
+							var wb = XLSX.read(res, {type: 'binary'});
+							var ws = wb.Sheets[wb.SheetNames[0]]
+							res = XLSX.utils.sheet_to_csv(ws);
 						}
 
 						function getQuantitativeAttrs(schema) {
@@ -629,7 +625,7 @@
 						console.log("NEW STATE:", self.state);
 					};
 				})(f);
-				reader.readAsText(f);
+				reader.readAsBinaryString(f);
 			}
 	    },
 
@@ -658,8 +654,16 @@
 
 				reader.onload = (function(theFile) {
 					return function (e) {
+						var ext = theFile.name.split('.')[theFile.name.split('.').length - 1];
 						var res = this.result;
 						var tableName = Object.keys(self.state.tables)[0];
+
+						if( ext == 'xls' || ext == 'xlsx' ){
+							//alert("ARCHIVO XLS YET UNSUPPORTED");
+							var wb = XLSX.read(res, {type: 'binary'});
+							var ws = wb.Sheets[wb.SheetNames[0]]
+							res = XLSX.utils.sheet_to_csv(ws);
+						}
 
 						function getQuantitativeAttrs(schema) {
 							var attrs = _.pick(schema.attributes, function(value, key) {
@@ -730,7 +734,7 @@
 					console.log("NEW STATE:", self.state);
 				};
 				})(f);
-				reader.readAsText(f);
+				reader.readAsBinaryString(f);
 			}
 	    },
 	
@@ -33397,6 +33401,15 @@
 	
 	});
 
+
+/***/ },
+/* 209 */
+/*!************************!*\
+  !*** external "React" ***!
+  \************************/
+/***/ function(module, exports, __webpack_require__) {
+
+	module.exports = XLSX;
 
 /***/ }
 /******/ ]);

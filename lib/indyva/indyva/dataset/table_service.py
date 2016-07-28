@@ -102,12 +102,11 @@ class TableService(INamed):
             return partial(self._proxy, method)
 
     def load_data(self, str_data, table_name, infer, sch): # Load new data to dataset (removing old data)
-
-        print "UPLOAD DATA:_____________________________________________________________"
-        print str_data.encode('utf-8')
-        print "_________________________________________________________________________"
-
         index_col = 'id_index'
+
+        # Clean CSV (extra columns with comma ',')
+        lines = [line.rstrip(',') for line in str_data.encode('utf-8').split('\n')]
+        str_data = '\n'.join(lines)
 
         # Receive the data as string
         data=StringIO(str_data)
@@ -119,6 +118,13 @@ class TableService(INamed):
         df.insert(0, index_col, df.index)
 
         df.fillna("NaN", inplace=True)
+
+        print ":::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::"
+        print ":::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::"
+        from pprint import pprint
+        pprint(df)
+        print ":::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::"
+        print ":::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::"
 
        	table = self._tables[table_name]
 
@@ -133,6 +139,10 @@ class TableService(INamed):
 
     def concat_data(self, str_data, table_name, new_cols=None): # Concat new data to current dataset
         index_col = 'id_index'
+
+        # Clean CSV (extra columns with comma ',')
+        lines = [line.rstrip(',') for line in str_data.encode('utf-8').split('\n')]
+        str_data = '\n'.join(lines)
 
         # Receive the data as string
         data=StringIO(str_data)
