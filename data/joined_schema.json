@@ -1,5 +1,5 @@
 {
- "index": "region_id", 
+ "index": "id_index", 
  "attributes": {
   "Patient": {
    "attribute_type": "CATEGORICAL", 
@@ -395,6 +395,14 @@
   },
   "region_id": {
    "attribute_type": "CATEGORICAL", 
+   "spatial": false, 
+   "key": true, 
+   "shape": [], 
+   "continuous": false,
+   "meta": {}
+  },
+  "id_index": {
+   "attribute_type": "ORDINAL", 
    "spatial": false, 
    "key": true, 
    "shape": [], 

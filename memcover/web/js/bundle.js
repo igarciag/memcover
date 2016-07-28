@@ -489,13 +489,19 @@
 						var ext = theFile.name.split('.')[theFile.name.split('.').length - 1];
 						var res = this.result;
 
+						var tableName = Object.keys(self.state.tables)[0];
+
 						console.log("EXT:", ext);
 						if( ext == 'xls' || ext == 'xlsx' ){
-							alert("ARCHIVO XLS");
+							alert("ARCHIVO XLS YET UNSUPPORTED");
+							/*var script = document.createElement("script");
+							script.type = "text/javascript";
+							script.src = "/node_modules/xlsjs/xls.js";
+							document.getElementsByTagName("head")[0].appendChild(script);
+							console.log("XLS:", XLS);
+							var cfb = XLS.read(res, {type:'binary'});*/
 							return;
 						}
-
-						var tableName = Object.keys(self.state.tables)[0];
 
 						function getQuantitativeAttrs(schema) {
 							var attrs = _.pick(schema.attributes, function(value, key) {
@@ -539,15 +545,18 @@
 
 							var diff1 = cols_old.filter(function(x) { return cols_new.indexOf(x) < 0 });
 							var diff2 = cols_new.filter(function(x) { return cols_old.indexOf(x) < 0 });
-
+							
 							var infer = false;
-							if((diff1.length > 0 || diff2.length > 0) && len != 2){
-								var msg = "FILE LOAD CANCELED\n\n";
+							var id_index = diff1.indexOf('id_index');
+							if (id_index > -1) diff1.splice(id_index, 1);
+							if( (diff1.length > 0 || diff2.length > 0) && len != 2 ){
+								var msg = "There are unexpected columns\n\n";
 								if(diff1.length > 0){ var msg = msg + "  - Expected columns (missing): '"+diff1.join("', '")+"'\n\n\n";}
 								if(diff2.length > 0){ var msg = msg + "  - Unexpected columns (too many): '"+diff2.join("', '")+"'\n\n\n";}
 								//alert(msg);
 								msg = msg + "Do you like use an infer schema or cancel the data load?\n";
 								var resp = confirm(msg);
+
 								if (resp == false) return;
 								else infer = true;
 							}
@@ -561,8 +570,8 @@
 										msg = msg + i + " : " + sch.attributes[i].attribute_type + "\n";
 									}
 									msg = msg + "\nDo you accept this schema?";
-									var resp = confirm(msg);
-									if (resp == false) return; 
+									/*var resp = confirm(msg);
+									if (resp == false) return;*/
 									self.state.tables[tableName].schema = sch;
 									self.state.tables[tableName].schema.attributes = _.mapValues(self.state.tables[tableName].schema.attributes, function(v,k){v.name = k; return v;});
 									self.state.tables[tableName].schema.quantitative_attrs = getQuantitativeAttrs(sch);
@@ -577,7 +586,6 @@
 							});
 
 							// Update conditions (filters)
-
 							rpc.call("ConditionSrv.update_conditions", [])
 							.then( function(condition){
 								for (var cond in condition) {
@@ -613,7 +621,7 @@
 									if ( diff1.indexOf(self.state.cards[card].config.attr) != -1 || diff1.indexOf(self.state.cards[card].config.facetAttr) != -1 ) self.removeCard(card);
 								}
 							}
-
+							
 							alert("DATA UPLOADED '"+theFile.name+"'\n");
 
 						//}
@@ -653,6 +661,13 @@
 						var res = this.result;
 						var tableName = Object.keys(self.state.tables)[0];
 
+						function getQuantitativeAttrs(schema) {
+							var attrs = _.pick(schema.attributes, function(value, key) {
+								return value.attribute_type === "QUANTITATIVE" && ! value.shape.length;
+							});
+							return _(attrs).keys().sort().value();
+						}
+
 						// Check if schema and data are consistent
 						var cols_new = res.split("\n")[0].split(",");
 						var cols_schema = Object.keys(self.state.tables[tableName].schema.attributes);
@@ -660,16 +675,34 @@
 						var diff1 = cols_schema.filter(function(x) { return cols_new.indexOf(x) < 0 });
 						var diff2 = cols_new.filter(function(x) { return cols_schema.indexOf(x) < 0 });
 
+						/*var id_index = diff1.indexOf('id_index');
+						if (id_index > -1) diff1.splice(id_index, 1);
 						if((diff1.length > 0 || diff2.length > 0)){
 							var msg = "CONCATENATION DATA CANCELED FROM '"+theFile.name+"'\n\n";
 							if(diff1.length > 0){ var msg = msg + "  - Expected columns (missing): '"+diff1.join("', '")+"'\n\n\n";}
 							if(diff2.length > 0){ var msg = msg + "  - Unexpected columns (too many): '"+diff2.join("', '")+"'\n\n\n";}
 							alert(msg);
 							return;
+						}*/
+
+						if(diff2.length > 0){
+							var msg = "The next columns will be added\n\n";
+							var msg = msg + "'"+diff2.join("', '")+"'\n\n\n";
+							msg = msg + "Do you accept this?\n";
+							var resp = confirm(msg);
+							if(resp == false) return;
 						}
 
 						// Concat new data
-						rpc.call("TableSrv.concat_data", [res, tableName]); // This function returns the infer schema
+						rpc.call("TableSrv.concat_data", [res, tableName, diff2]) // This function returns the infer schema
+						.then(function(sch){
+							if (diff2.length > 0) {
+								self.state.tables[tableName].schema = sch;
+								self.state.tables[tableName].schema.attributes = _.mapValues(self.state.tables[tableName].schema.attributes, function(v,k){v.name = k; return v;});
+								self.state.tables[tableName].schema.quantitative_attrs = getQuantitativeAttrs(sch);
+								//self.setState({"tables": self.state.tables});
+							}
+						});
 
 						// Update new data in the state
 						Store.getData(tableName).then(function(rows){
@@ -679,11 +712,19 @@
 
 						// Update conditions (filters)
 						rpc.call("ConditionSrv.update_conditions", [])
-							.then( function(condition){
-								for (var cond in condition) {
-									Store.includeAll(cond).then(Store.linkCondition.bind(self,cond));
-								}
+						.then( function(condition){
+							for (var cond in condition) {
+								Store.includeAll(cond).then(Store.linkCondition.bind(self,cond));
+							}
+						});
+						var selection = self.state.tables[tableName].selection;
+						if ( self.state.conditions[tableName] != undefined && self.state.conditions[tableName][selection] != undefined){
+							rpc.call("ConditionSrv.update_conditions2", [self.state.conditions[tableName][selection]])
+							.then( function(conditions){
+								self.state.conditions[tableName][selection] = conditions;
+								self.setState({"conditions": self.state.conditions});
 							});
+						}
 						alert("DATA UPLOADED FROM '"+theFile.name+"'\n");
 					//}
 					console.log("NEW STATE:", self.state);
@@ -2820,9 +2861,7 @@
 		var scales = this._scales(width, height, props.data, props.attributes);
 		var path = this._path(props.attributes, scales, nanY);
 		var dragState = {};
-	
-		console.log("PCP:", props.data);
-	
+		
 		var realSvg = d3.select(container).select("svg");
 		realSvg.attr("width", props.width)
 		    .attr("height", props.height);

@@ -14,6 +14,7 @@ from .abc_table import ITableView
 from indyva.dataset.mongo_backend.table import MongoTable
 import collections, json, sys
 import pandas as pd
+from .schemas import AttributeSchema
 if sys.version_info[0] < 3: from StringIO import StringIO
 else: from io import StringIO
 
@@ -101,13 +102,22 @@ class TableService(INamed):
             return partial(self._proxy, method)
 
     def load_data(self, str_data, table_name, infer, sch): # Load new data to dataset (removing old data)
+
         print "UPLOAD DATA:_____________________________________________________________"
         print str_data.encode('utf-8')
         print "_________________________________________________________________________"
 
+        index_col = 'id_index'
+
         # Receive the data as string
         data=StringIO(str_data)
         df = pd.read_csv(data, sep=",")
+
+        # Create id_index column
+        if index_col in df.columns:
+            df.drop(labels=[index_col], axis=1, inplace = True)
+        df.insert(0, index_col, df.index)
+
         df.fillna("NaN", inplace=True)
 
        	table = self._tables[table_name]
@@ -121,15 +131,34 @@ class TableService(INamed):
 
         return table._schema
 
-    def concat_data(self, str_data, table_name): # Concat new data to current dataset
+    def concat_data(self, str_data, table_name, new_cols=None): # Concat new data to current dataset
+        index_col = 'id_index'
+
         # Receive the data as string
         data=StringIO(str_data)
         df = pd.read_csv(data, sep=",")
         df.fillna("NaN", inplace=True)
 
        	table = self._tables[table_name]
-        
-        from pprint import pprint
+
+        try: max_id_index = table.find_one(sort=[(index_col, -1)])[index_col]
+        except: pass
+
+        # Create id_index column
+        if index_col in df.columns:
+            df.drop(labels=[index_col], axis=1, inplace = True)
+        df.insert(0, index_col, range(max_id_index+1, max_id_index+df.shape[0]+1))
+
+        # Add columns of the new data
+        if new_cols is not None:
+            if index_col in new_cols: new_cols.remove(index_col)
+            concat_schema = {}
+            for attr in new_cols:
+                attr_utf = attr.encode('utf-8')
+                concat_schema[attr_utf] = dict(AttributeSchema.infer_from_data(df[attr_utf])._schema)
+                
+            table._schema._schema['attributes'].update(collections.OrderedDict(concat_schema))
+
         dict_data = df.to_dict()
         list_all_insert = []
         data_insert = {}
