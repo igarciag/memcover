@@ -134,6 +134,7 @@
 	var CardCreationMenu = __webpack_require__(/*! ./cardCreationMenu */ 14);
 	var AnalysisMenu = __webpack_require__(/*! ./analysisMenu */ 15);
 	var FileMenu = __webpack_require__(/*! ./fileMenu */ 208);
+	var XMenu = __webpack_require__(/*! ./XMenu */ 210);
 
 	var PCPChart = reactify(__webpack_require__(/*! ./pcpChart */ 16), "PCPChart");
 	var BoxChart = reactify(__webpack_require__(/*! ./boxChart */ 17), "BoxChart");
@@ -421,7 +422,7 @@
 	
 	    },
 
-			loadData: function(ev) {
+			openData: function(ev) {
 
 			var self = this;
 			var when =  __webpack_require__(/*! when */ 5);
@@ -737,6 +738,65 @@
 				reader.readAsBinaryString(f);
 			}
 	    },
+
+			importData: function(ev) {
+				var self = this;
+				var when =  __webpack_require__(/*! when */ 5);
+				var rpc = Context.instance().rpc;
+
+				var files = ev.target.files;
+				
+				var accept_data_ext = ['csv','xls','xlsx','xlsm','xlt'];
+				
+				// Check file (or files) selected
+				for (var i = 0; i < files.length; i++) {
+					var file_ext = files[i].name.split('.');
+					var file_ext = file_ext[file_ext.length - 1];
+					if ( accept_data_ext.indexOf(file_ext) == -1 ) {
+						alert("El fichero '"+file.name+"' no esta en el formato correcto\n\nAccepted file extensions: "+accept_data_ext.join()+"\n");
+					}
+			
+					var f = files[i];
+
+					var reader = new FileReader();
+					//ev.target.value = ""; // So same file rise onChange
+
+					reader.onload = (function(theFile) {
+						return function (e) {
+							var ext = theFile.name.split('.')[theFile.name.split('.').length - 1];
+							var res = this.result;
+							var tableName = Object.keys(self.state.tables)[0];
+
+							if( ext == 'xls' || ext == 'xlsx' ){
+								//alert("ARCHIVO XLS YET UNSUPPORTED");
+								var wb = XLSX.read(res, {type: 'binary'});
+								var ws = wb.Sheets[wb.SheetNames[0]]
+								res = XLSX.utils.sheet_to_csv(ws);
+							}
+
+							rpc.call("TableSrv.import_data", [res, tableName, theFile.name]);
+
+							var xhr;
+							if (window.XMLHttpRequest) {
+									xhr = new XMLHttpRequest();
+							} else if (window.ActiveXObject) {
+									xhr = new ActiveXObject("Microsoft.XMLHTTP");
+							}
+
+							xhr.onreadystatechange = function(){alert(xhr.responseText);};
+							xhr.open("GET","/app/data/import/BCNs_AT8_all.csv"); //assuming kgr.bss is plaintext
+							xhr.send();
+
+							console.log("FILE '"+theFile.name+"':", res);
+					};
+					})(f);
+					reader.readAsBinaryString(f);
+				}
+	    },
+			loadData: function(ev) {
+				console.log("LLEEEEEGOOOOO");
+				alert("LISTA DE ARCHIVOS");
+			},
 	
 	    loadAnalysis: function(ev) {
 		var self = this;
@@ -1029,8 +1089,19 @@
 				style:  {"margin-right":10}, 
 				tables: this.state.tables, 
 				onExport: function(table){Store.exportTable(table, table.name);},
-				onOpenData: self.loadData,
+				onOpenData: self.openData,
 				onConcatData: self.concatData,
+				}
+	
+			),
+
+				React.createElement(XMenu, {className: "navbar-btn pull-right", 
+				style:  {"margin-right":10}, 
+				tables: this.state.tables, 
+				onExport: function(table){Store.exportTable(table, table.name);},
+				onLoadData: self.loadData,
+				onConcatData: self.concatData,
+				onImportData: self.importData,
 				}
 	
 			)
@@ -33410,6 +33481,90 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	module.exports = XLSX;
+
+/***/ },
+/* 210 */
+/*!**************************!*\
+  !*** ./XMenu.jsx ***!
+  \**************************/
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict'
+	
+	var React = __webpack_require__(/*! react */ 1);
+	var _ = __webpack_require__(/*! lodash */ 2);
+	
+	var BS = __webpack_require__(/*! react-bootstrap */ 24);
+	
+	module.exports = React.createClass({displayName: "exports",
+	
+	    getDefaultProps: function() {
+		return {
+		    tables: {},
+		    label: "X",
+		    header: "Export to excel",
+		    bsStyle: "default"
+		};
+	    },
+
+	    loadFileMenuData: function(){
+				console.log("LLEGO");
+				module.exports.loadData();
+			this.refs.loadFileData.getDOMNode().click();
+			//alert("USAR EL MENU 'File'");
+	    },
+
+			concatFileMenuData: function(){
+		//this.refs.concatFileData.getDOMNode().click();
+			alert("USAR EL MENU 'File'");
+	    },
+
+			importFileMenuData: function(){
+		this.refs.importFileData.getDOMNode().click();
+	    },
+	
+	    render: function() {
+		var loadFileMenuData = this.loadFileMenuData; 
+		var concatFileMenuData = this.concatFileMenuData; 
+		var importFileMenuData = this.importFileMenuData; 
+		var onLoadData = this.props.onLoadData;
+		var onConcatData = this.props.onConcatData;
+		var onImportData = this.props.onImportData;
+		var onExport = this.props.onExport;
+		var header = this.props.header;
+		return (
+	
+	            React.createElement(BS.DropdownButton, {className: this.props.className, 
+			    style: this.props.style, 
+			    bsStyle: this.props.bsStyle, 
+			    title: this.props.label}, 
+	
+		      //React.createElement(BS.MenuItem, {header: true}, " File "), 
+		      React.createElement(BS.MenuItem, {onSelect: loadFileMenuData}, " Open "),
+		      React.createElement("input", {style: {"display":"none"}, type: "text", ref: "loadFileData", onChange: onLoadData}),					
+		      //React.createElement("input", {style: {"display":"none"}, ref: "loadFileData", onChange: onLoadData}),
+		      React.createElement(BS.MenuItem, {onSelect: concatFileMenuData}, " Add data "),
+		      React.createElement("input", {style: {"display":"none"}, type: "file", multiple:"multiple", accept: ".csv, .xlsx, .xlsm, .xls, .xlt", ref: "concatFileData", onChange: onConcatData}),
+					React.createElement(BS.MenuItem, {onSelect: importFileMenuData}, " Import "),
+		      React.createElement("input", {style: {"display":"none"}, type: "file", multiple:"multiple", accept: ".csv, .xlsx, .xlsm, .xls, .xlt", ref: "importFileData", onChange: onImportData}),
+	
+		      React.createElement(BS.MenuItem, {header: true}, " ", header, " "), 
+		      
+		      
+			  _.values(this.props.tables).map(function(table, i) {
+			      return(
+	                          React.createElement(BS.MenuItem, {eventKey: i, onSelect:  onExport.bind(this, table) }, 
+				  table.name
+				  )
+			      )
+			  })
+		       
+	            )
+		)
+	    }
+	
+	});
+
 
 /***/ }
 /******/ ]);

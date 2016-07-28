@@ -40,6 +40,7 @@ class TableService(INamed):
         dispatcher.add_method(self.load_data)
         dispatcher.add_method(self.concat_data)
         dispatcher.add_method(self.load_schema)
+        dispatcher.add_method(self.import_data)        
         # TableView properties
         dispatcher.add_method(partial(self._proxy_property, 'name'), 'name')
         dispatcher.add_method(partial(self._proxy_property, 'index'), 'index')
@@ -120,10 +121,8 @@ class TableService(INamed):
         df.fillna("NaN", inplace=True)
 
         print ":::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::"
-        print ":::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::"
         from pprint import pprint
         pprint(df)
-        print ":::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::"
         print ":::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::"
 
        	table = self._tables[table_name]
@@ -199,3 +198,22 @@ class TableService(INamed):
         table._schema = TableSchema(schema['attributes'], schema['index'])
 
         return table._schema
+
+    def import_data(self, str_data, table_name, file_name): # Concat new data to current dataset
+        data_dir = "/app/data/import"
+
+        from os import listdir, mkdir
+        from os.path import isfile, isdir
+
+        if not isdir(data_dir): mkdir(data_dir)
+
+        with open(data_dir+"/"+file_name, "w") as text_file:
+            text_file.write(str_data.encode('utf-8'))
+
+        onlyfiles = [f for f in listdir(data_dir)]
+
+        print "::::::::::::::::::::::::::::::::::::::."
+        print "::::::::::::::::::::::::::::::::::::::."
+        print onlyfiles
+        print "::::::::::::::::::::::::::::::::::::::."
+        print "::::::::::::::::::::::::::::::::::::::."
