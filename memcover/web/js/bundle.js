@@ -151,18 +151,19 @@
 	var Button = BS.Button;
 	var Glyphicon = BS.Glyphicon;
 	var ModalTrigger = BS.ModalTrigger;
+
+
+	function getQuantitativeAttrs(schema) {
+		var attrs = _.pick(schema.attributes, function(value, key) {
+			return value.attribute_type === "QUANTITATIVE" && ! value.shape.length;
+		});
+		return _(attrs).keys().sort().value();
+	}
 	
 	
 	var Store = {
 	    getSchema: function(tableName) {
 		var rpc = Context.instance().rpc;
-	
-	 	function getQuantitativeAttrs(schema) {
-		    var attrs = _.pick(schema.attributes, function(value, key) {
-			return value.attribute_type === "QUANTITATIVE" && ! value.shape.length;
-		    });
-		    return _(attrs).keys().sort().value();
-		}
 	
 		var promise = rpc.call("TableSrv.schema", [tableName])
 		    .then(function(schema) {
@@ -500,13 +501,6 @@
 							res = XLSX.utils.sheet_to_csv(ws);
 						}
 
-						function getQuantitativeAttrs(schema) {
-							var attrs = _.pick(schema.attributes, function(value, key) {
-								return value.attribute_type === "QUANTITATIVE" && ! value.shape.length;
-							});
-							return _(attrs).keys().sort().value();
-						}
-
 						console.log("LOADED:", theFile.name);
 						if ( accept_schema_ext.indexOf(ext) != -1 ) { // Schema file (.json)
 							var res_json = JSON.parse(res);
@@ -538,12 +532,10 @@
 
 							// Check if schema and data are consistent
 							var cols_new = res.split("\n")[0].split(",");
-							//var cols_old = Object.keys(self.state.tables[tableName].schema.attributes);
 
 							var diff1 = cols_old.filter(function(x) { return cols_new.indexOf(x) < 0 });
 							var diff2 = cols_new.filter(function(x) { return cols_old.indexOf(x) < 0 });
 							
-							var infer = false;
 							var id_index = diff1.indexOf('id_index');
 							if (id_index > -1) diff1.splice(id_index, 1);
 							if( (diff1.length > 0 || diff2.length > 0) && len != 2 ){
@@ -555,25 +547,21 @@
 								var resp = confirm(msg);
 
 								if (resp == false) return;
-								else infer = true;
 							}
-							//else {
+
 							// Load new data and schema if necessary
-							rpc.call("TableSrv.load_data", [res, tableName, infer]) // This function returns the infer schema
+							rpc.call("TableSrv.load_data", [res, tableName]) // This function returns the infer schema
 							.then(function(sch){
-								if (infer == true) {
-									var msg = "The infered schema is:\n";
+									/*var msg = "The infered schema is:\n";
 									for (i in sch.attributes) {
 										msg = msg + i + " : " + sch.attributes[i].attribute_type + "\n";
 									}
 									msg = msg + "\nDo you accept this schema?";
-									/*var resp = confirm(msg);
+									var resp = confirm(msg);
 									if (resp == false) return;*/
 									self.state.tables[tableName].schema = sch;
 									self.state.tables[tableName].schema.attributes = _.mapValues(self.state.tables[tableName].schema.attributes, function(v,k){v.name = k; return v;});
 									self.state.tables[tableName].schema.quantitative_attrs = getQuantitativeAttrs(sch);
-									//self.setState({"tables": self.state.tables});
-								}
 							});
 
 							// Update new data in the state
@@ -593,8 +581,8 @@
 							var selection = self.state.tables[tableName].selection;
 							if ( self.state.conditions[tableName] != undefined && self.state.conditions[tableName][selection] != undefined){
 									rpc.call("ConditionSrv.update_conditions2", [self.state.conditions[tableName][selection]])
-									.then( function(conditions){
-											self.state.conditions[tableName][selection] = conditions;
+									.then( function(conditions_grammar){
+											self.state.conditions[tableName][selection] = conditions_grammar;
 											self.setState({"conditions": self.state.conditions});
 									});
 							}
@@ -620,8 +608,6 @@
 							}
 							
 							alert("DATA UPLOADED '"+theFile.name+"'\n");
-
-						//}
 						}
 						console.log("NEW STATE:", self.state);
 					};
@@ -666,29 +652,12 @@
 							res = XLSX.utils.sheet_to_csv(ws);
 						}
 
-						function getQuantitativeAttrs(schema) {
-							var attrs = _.pick(schema.attributes, function(value, key) {
-								return value.attribute_type === "QUANTITATIVE" && ! value.shape.length;
-							});
-							return _(attrs).keys().sort().value();
-						}
-
 						// Check if schema and data are consistent
 						var cols_new = res.split("\n")[0].split(",");
 						var cols_schema = Object.keys(self.state.tables[tableName].schema.attributes);
 
 						var diff1 = cols_schema.filter(function(x) { return cols_new.indexOf(x) < 0 });
 						var diff2 = cols_new.filter(function(x) { return cols_schema.indexOf(x) < 0 });
-
-						/*var id_index = diff1.indexOf('id_index');
-						if (id_index > -1) diff1.splice(id_index, 1);
-						if((diff1.length > 0 || diff2.length > 0)){
-							var msg = "CONCATENATION DATA CANCELED FROM '"+theFile.name+"'\n\n";
-							if(diff1.length > 0){ var msg = msg + "  - Expected columns (missing): '"+diff1.join("', '")+"'\n\n\n";}
-							if(diff2.length > 0){ var msg = msg + "  - Unexpected columns (too many): '"+diff2.join("', '")+"'\n\n\n";}
-							alert(msg);
-							return;
-						}*/
 
 						if(diff2.length > 0){
 							for(var j = diff2.length-1; j--;){
@@ -708,7 +677,6 @@
 								self.state.tables[tableName].schema = sch;
 								self.state.tables[tableName].schema.attributes = _.mapValues(self.state.tables[tableName].schema.attributes, function(v,k){v.name = k; return v;});
 								self.state.tables[tableName].schema.quantitative_attrs = getQuantitativeAttrs(sch);
-								//self.setState({"tables": self.state.tables});
 							}
 						});
 
@@ -734,7 +702,7 @@
 							});
 						}
 						alert("DATA UPLOADED FROM '"+theFile.name+"'\n");
-					//}
+
 					console.log("NEW STATE:", self.state);
 				};
 				})(f);
@@ -771,7 +739,6 @@
 							var tableName = Object.keys(self.state.tables)[0];
 
 							if( ext == 'xls' || ext == 'xlsx' ){
-								//alert("ARCHIVO XLS YET UNSUPPORTED");
 								var wb = XLSX.read(res, {type: 'binary'});
 								var ws = wb.Sheets[wb.SheetNames[0]]
 								res = XLSX.utils.sheet_to_csv(ws);
@@ -793,35 +760,32 @@
 				var rpc = Context.instance().rpc;
 
 				var tableName = Object.keys(self.state.tables)[0];
-
-				function getQuantitativeAttrs(schema) {
-					var attrs = _.pick(schema.attributes, function(value, key) {
-						return value.attribute_type === "QUANTITATIVE" && ! value.shape.length;
-					});
-					return _(attrs).keys().sort().value();
-				}
+				var selected = "";
 
 				rpc.call("TableSrv.show_data", [])
 				.then(function(filelist){
 					alert("SELECT A FILE:\n\n"+filelist.join("\n")+"\n");
-					var selected = "BCNs_AT8_all.csv";
+					
+					selected = "BCNs_AT8_all.csv";
 
 					// Load new data and schema if necessary
 					rpc.call("TableSrv.load_data_server", [selected, tableName]) // This function returns the infer schema
-							.then(function(sch){
-								//if (infer == true) {
-									var msg = "The infered schema is:\n";
+							.then(function(resp){
+									if( resp[0] !== "OK" ){
+										alert("UPLOAD DATA CANCELED\n\n"+resp[1]+"\n");
+										return;
+									}
+									var sch = resp[1];
+									/*var msg = "The infered schema is:\n";
 									for (var i in sch.attributes) {
 										msg = msg + i + " : " + sch.attributes[i].attribute_type + "\n";
 									}
 									msg = msg + "\nDo you accept this schema?";
-									/*var resp = confirm(msg);
+									var resp = confirm(msg);
 									if (resp == false) return;*/
 									self.state.tables[tableName].schema = sch;
 									self.state.tables[tableName].schema.attributes = _.mapValues(self.state.tables[tableName].schema.attributes, function(v,k){v.name = k; return v;});
 									self.state.tables[tableName].schema.quantitative_attrs = getQuantitativeAttrs(sch);
-									//self.setState({"tables": self.state.tables});
-								//}
 							});
 
 							// Update new data in the state
@@ -866,7 +830,6 @@
 									if ( diff1.indexOf(self.state.cards[card].config.attr) != -1 || diff1.indexOf(self.state.cards[card].config.facetAttr) != -1 ) self.removeCard(card);
 								}
 							}
-					alert("DATA UPLOADED FROM '"+selected+"'\n");
 				});
 			},
 	

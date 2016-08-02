@@ -104,7 +104,7 @@ class TableService(INamed):
         else:
             return partial(self._proxy, method)
 
-    def load_data(self, str_data, table_name, infer): # Load new data to dataset (removing old data)
+    def load_data(self, str_data, table_name, infer = True): # Load new data to dataset (removing old data)
         index_col = 'id_index'
 
         # Clean CSV (extra columns with comma ',')
@@ -123,11 +123,6 @@ class TableService(INamed):
         df.insert(0, index_col, df.index)
 
         df.fillna("NaN", inplace=True)
-
-        print ":::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::"
-        from pprint import pprint
-        pprint(df)
-        print ":::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::"
 
        	table = self._tables[table_name]
 
@@ -163,15 +158,6 @@ class TableService(INamed):
         if '' in df.columns:
             df.drop(labels=[''], axis=1, inplace = True)
         df.insert(0, index_col, range(max_id_index+1, max_id_index+df.shape[0]+1))
-
-        print "_________________________________________________---------------"
-        print new_cols
-        print "_________________________________________________---------------"
-        print str_data
-        print "_________________________________________________---------------"
-        from pprint import pprint
-        pprint(df)
-        print "_________________________________________________---------------"
 
         # Add columns of the new data
         if new_cols is not None:
@@ -249,18 +235,13 @@ class TableService(INamed):
         from os.path import isdir
 
         if not file_name in listdir(data_dir):
-            return "ERROR: The file '"+absolute_path+" doesn't exist\nPlease, load another file"
+            return "ERROR", "The file '"+absolute_path+" doesn't exist\nPlease, load another file"
 
         str_data = ""
         with open(absolute_path, "r") as text_file:
-            print "OPEN FILE - " + absolute_path
+            print "OPENED FILE - " + absolute_path
             str_data = text_file.read();
 
-        print "::::::::::::::::::::::::::::::::::::::::::."
-        print "::::::::::::::::::::::::::::::::::::::::::."
-        print str_data
-        print "::::::::::::::::::::::::::::::::::::::::::."
-        print "::::::::::::::::::::::::::::::::::::::::::."
-        if str_data == "": return "ERROR: Cannot read file '"+file_name+"/"+data_dir+"'"
+        if str_data == "": return "ERROR", "Cannot read file '"+file_name+"/"+data_dir+"'"
 
-       	return self.load_data(str_data, table_name, True)
+       	return "OK", self.load_data(str_data, table_name)
