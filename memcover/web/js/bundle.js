@@ -447,11 +447,11 @@
 					return;
 				}
 				/*else if ( accept_data_ext.indexOf(file0_ext) == -1 && accept_data_ext.indexOf(file1_ext) == -1 ) {
-					alert("There aren't a data file\n\nSelected file extensions: "+file0_ext+","+file1_ext+"\nAccepted file extensions: "+accept_data_ext.join()+"\n");
+					alert("There isn't a data file\n\nSelected file extensions: "+file0_ext+","+file1_ext+"\nAccepted file extensions: "+accept_data_ext.join()+"\n");
 					return;
 				}
 				else if ( accept_schema_ext.indexOf(file0_ext) == -1 && accept_schema_ext.indexOf(file1_ext) == -1 ) {
-					alert("There aren't a schema file\n\nSelected file extensions: "+file0_ext+","+file1_ext+"\nAccepted file extensions: "+accept_schema_ext.join()+"\n");
+					alert("There isn't a schema file\n\nSelected file extensions: "+file0_ext+","+file1_ext+"\nAccepted file extensions: "+accept_schema_ext.join()+"\n");
 					return;
 				}*/
 				else {
@@ -559,7 +559,7 @@
 							}
 							//else {
 							// Load new data and schema if necessary
-							rpc.call("TableSrv.load_data", [res, tableName, infer, self.state.tables[tableName].schema]) // This function returns the infer schema
+							rpc.call("TableSrv.load_data", [res, tableName, infer]) // This function returns the infer schema
 							.then(function(sch){
 								if (infer == true) {
 									var msg = "The infered schema is:\n";
@@ -691,13 +691,16 @@
 						}*/
 
 						if(diff2.length > 0){
+							for(var j = diff2.length-1; j--;){
+								if (diff2[j] === "") diff2.splice(j, 1);
+							}
 							var msg = "The next columns will be added\n\n";
 							var msg = msg + "'"+diff2.join("', '")+"'\n\n\n";
 							msg = msg + "Do you accept this?\n";
 							var resp = confirm(msg);
 							if(resp == false) return;
 						}
-
+						console.log("DIFF2:", diff2);
 						// Concat new data
 						rpc.call("TableSrv.concat_data", [res, tableName, diff2]) // This function returns the infer schema
 						.then(function(sch){
@@ -774,18 +777,8 @@
 								res = XLSX.utils.sheet_to_csv(ws);
 							}
 
-							rpc.call("TableSrv.import_data", [res, tableName, theFile.name]);
-
-							var xhr;
-							if (window.XMLHttpRequest) {
-									xhr = new XMLHttpRequest();
-							} else if (window.ActiveXObject) {
-									xhr = new ActiveXObject("Microsoft.XMLHTTP");
-							}
-
-							xhr.onreadystatechange = function(){alert(xhr.responseText);};
-							xhr.open("GET","/app/data/import/BCNs_AT8_all.csv"); //assuming kgr.bss is plaintext
-							xhr.send();
+							rpc.call("TableSrv.import_data", [res, tableName, theFile.name])
+							.then(function(resp){ if(resp != "OK") alert(resp); });
 
 							console.log("FILE '"+theFile.name+"':", res);
 					};
@@ -793,9 +786,88 @@
 					reader.readAsBinaryString(f);
 				}
 	    },
+			
 			loadData: function(ev) {
-				console.log("LLEEEEEGOOOOO");
-				alert("LISTA DE ARCHIVOS");
+				var self = this;
+				var when =  __webpack_require__(/*! when */ 5);
+				var rpc = Context.instance().rpc;
+
+				var tableName = Object.keys(self.state.tables)[0];
+
+				function getQuantitativeAttrs(schema) {
+					var attrs = _.pick(schema.attributes, function(value, key) {
+						return value.attribute_type === "QUANTITATIVE" && ! value.shape.length;
+					});
+					return _(attrs).keys().sort().value();
+				}
+
+				rpc.call("TableSrv.show_data", [])
+				.then(function(filelist){
+					alert("SELECT A FILE:\n\n"+filelist.join("\n")+"\n");
+					var selected = "BCNs_AT8_all.csv";
+
+					// Load new data and schema if necessary
+					rpc.call("TableSrv.load_data_server", [selected, tableName]) // This function returns the infer schema
+							.then(function(sch){
+								//if (infer == true) {
+									var msg = "The infered schema is:\n";
+									for (var i in sch.attributes) {
+										msg = msg + i + " : " + sch.attributes[i].attribute_type + "\n";
+									}
+									msg = msg + "\nDo you accept this schema?";
+									/*var resp = confirm(msg);
+									if (resp == false) return;*/
+									self.state.tables[tableName].schema = sch;
+									self.state.tables[tableName].schema.attributes = _.mapValues(self.state.tables[tableName].schema.attributes, function(v,k){v.name = k; return v;});
+									self.state.tables[tableName].schema.quantitative_attrs = getQuantitativeAttrs(sch);
+									//self.setState({"tables": self.state.tables});
+								//}
+							});
+
+							// Update new data in the state
+							Store.getData(tableName).then(function(rows){
+								self.state.tables[tableName].data = rows;
+								self.setState({"tables": self.state.tables});
+							});
+
+							// Update conditions (filters)
+							rpc.call("ConditionSrv.update_conditions", [])
+							.then( function(condition){
+								for (var cond in condition) {
+									Store.includeAll(cond).then(Store.linkCondition.bind(self,cond));
+								}
+							});
+
+							var selection = self.state.tables[tableName].selection;
+							if ( self.state.conditions[tableName] != undefined && self.state.conditions[tableName][selection] != undefined){
+									rpc.call("ConditionSrv.update_conditions2", [self.state.conditions[tableName][selection]])
+									.then( function(conditions){
+											self.state.conditions[tableName][selection] = conditions;
+											self.setState({"conditions": self.state.conditions});
+									});
+							}
+							//Remove cards with "old" columns
+							for (var card in self.state.cards){
+								if( self.state.cards[card].kind == 'pcp' || self.state.cards[card].kind == 'table'){
+									for (var col in self.state.cards[card].config.columns){
+										if( self.state.cards[card].config.columns[col].included === true && diff1.indexOf(self.state.cards[card].config.columns[col].name) != -1 ){
+											self.removeCard(card);
+											break;
+										}
+									}
+								}
+								else if( self.state.cards[card].kind == 'scatter' ) {
+									if ( diff1.indexOf(self.state.cards[card].config.xColumn) != -1 || diff1.indexOf(self.state.cards[card].config.yColumn) != -1 ) self.removeCard(card);
+								}
+								else if( self.state.cards[card].kind == 'box' ) {
+									if ( diff1.indexOf(self.state.cards[card].config.attr) != -1 || diff1.indexOf(self.state.cards[card].config.facetAttr) != -1 ) self.removeCard(card);
+								}
+								else if( self.state.cards[card].kind == 'categoricalFilter' || self.state.cards[card].kind == 'rangeFilter' ) {
+									if ( diff1.indexOf(self.state.cards[card].config.attr) != -1 || diff1.indexOf(self.state.cards[card].config.facetAttr) != -1 ) self.removeCard(card);
+								}
+							}
+					alert("DATA UPLOADED FROM '"+selected+"'\n");
+				});
 			},
 	
 	    loadAnalysis: function(ev) {
@@ -1061,7 +1133,6 @@
 	
 		return (
 		    React.createElement("div", {className: "mainApp"}, 
-	
 		    React.createElement(Navbar, {brand: "Memcover", fixedTop: true}, 
 				React.createElement(ModalTrigger, {modal: React.createElement(CardCreationMenu, {tabs: creationVisMenuTabs, onCreateCard: this.addCard})}, 
 			  React.createElement(Button, {className: "navbar-btn pull-right", bsStyle: "primary"}, 
@@ -1116,8 +1187,8 @@
 			      useCSSTransforms: true, 
 			      onLayoutChange: function(layout){self.setState({"layout":layout});}, 
 			      onResizeStop: function(layout, oldL, l, _, ev){/* console.log(ev);*/}
-			      }, 
-			
+			      },
+
 	
 			    /*
 			     * Render all the cards
@@ -33508,10 +33579,7 @@
 	    },
 
 	    loadFileMenuData: function(){
-				console.log("LLEGO");
-				module.exports.loadData();
-			this.refs.loadFileData.getDOMNode().click();
-			//alert("USAR EL MENU 'File'");
+				this.refs.loadFileData.getDOMNode().click();
 	    },
 
 			concatFileMenuData: function(){
@@ -33541,7 +33609,7 @@
 	
 		      //React.createElement(BS.MenuItem, {header: true}, " File "), 
 		      React.createElement(BS.MenuItem, {onSelect: loadFileMenuData}, " Open "),
-		      React.createElement("input", {style: {"display":"none"}, type: "text", ref: "loadFileData", onChange: onLoadData}),					
+		      React.createElement("input", {style: {"display":"none"}, type: "checkbox", ref: "loadFileData", onChange: onLoadData}),					
 		      //React.createElement("input", {style: {"display":"none"}, ref: "loadFileData", onChange: onLoadData}),
 		      React.createElement(BS.MenuItem, {onSelect: concatFileMenuData}, " Add data "),
 		      React.createElement("input", {style: {"display":"none"}, type: "file", multiple:"multiple", accept: ".csv, .xlsx, .xlsm, .xls, .xlt", ref: "concatFileData", onChange: onConcatData}),

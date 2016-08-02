@@ -41,6 +41,8 @@ class TableService(INamed):
         dispatcher.add_method(self.concat_data)
         dispatcher.add_method(self.load_schema)
         dispatcher.add_method(self.import_data)        
+        dispatcher.add_method(self.show_data)        
+        dispatcher.add_method(self.load_data_server)
         # TableView properties
         dispatcher.add_method(partial(self._proxy_property, 'name'), 'name')
         dispatcher.add_method(partial(self._proxy_property, 'index'), 'index')
@@ -102,12 +104,14 @@ class TableService(INamed):
         else:
             return partial(self._proxy, method)
 
-    def load_data(self, str_data, table_name, infer, sch): # Load new data to dataset (removing old data)
+    def load_data(self, str_data, table_name, infer): # Load new data to dataset (removing old data)
         index_col = 'id_index'
 
         # Clean CSV (extra columns with comma ',')
-        lines = [line.rstrip(',') for line in str_data.encode('utf-8').split('\n')]
-        str_data = '\n'.join(lines)
+        try:
+            lines = [line.rstrip(',') for line in str_data.encode('utf-8').split('\n')]
+            str_data = '\n'.join(lines)
+        except: pass
 
         # Receive the data as string
         data=StringIO(str_data)
@@ -156,7 +160,18 @@ class TableService(INamed):
         # Create id_index column
         if index_col in df.columns:
             df.drop(labels=[index_col], axis=1, inplace = True)
+        if '' in df.columns:
+            df.drop(labels=[''], axis=1, inplace = True)
         df.insert(0, index_col, range(max_id_index+1, max_id_index+df.shape[0]+1))
+
+        print "_________________________________________________---------------"
+        print new_cols
+        print "_________________________________________________---------------"
+        print str_data
+        print "_________________________________________________---------------"
+        from pprint import pprint
+        pprint(df)
+        print "_________________________________________________---------------"
 
         # Add columns of the new data
         if new_cols is not None:
@@ -199,21 +214,53 @@ class TableService(INamed):
 
         return table._schema
 
-    def import_data(self, str_data, table_name, file_name): # Concat new data to current dataset
+    def import_data(self, str_data, table_name, file_name): # Import file to server-side
         data_dir = "/app/data/import"
 
         from os import listdir, mkdir
-        from os.path import isfile, isdir
+        from os.path import isdir
 
         if not isdir(data_dir): mkdir(data_dir)
+
+        if file_name in listdir(data_dir):
+            return "ERROR: There is already a file called '"+file_name+"'\nPlease, change the filename"
 
         with open(data_dir+"/"+file_name, "w") as text_file:
             text_file.write(str_data.encode('utf-8'))
 
-        onlyfiles = [f for f in listdir(data_dir)]
+        return "OK"
 
-        print "::::::::::::::::::::::::::::::::::::::."
-        print "::::::::::::::::::::::::::::::::::::::."
-        print onlyfiles
-        print "::::::::::::::::::::::::::::::::::::::."
-        print "::::::::::::::::::::::::::::::::::::::."
+    def show_data(self): # Return all filenames of data directory
+        data_dir = "/app/data/import"
+
+        from os import listdir, mkdir
+        from os.path import isdir
+
+        if not isdir(data_dir): mkdir(data_dir)
+
+       	return [f for f in listdir(data_dir)]
+
+    def load_data_server(self, file_name, table_name): # Return all filenames of data directory
+        data_dir = "/app/data/import"
+
+        absolute_path = data_dir+"/"+file_name
+
+        from os import listdir, mkdir
+        from os.path import isdir
+
+        if not file_name in listdir(data_dir):
+            return "ERROR: The file '"+absolute_path+" doesn't exist\nPlease, load another file"
+
+        str_data = ""
+        with open(absolute_path, "r") as text_file:
+            print "OPEN FILE - " + absolute_path
+            str_data = text_file.read();
+
+        print "::::::::::::::::::::::::::::::::::::::::::."
+        print "::::::::::::::::::::::::::::::::::::::::::."
+        print str_data
+        print "::::::::::::::::::::::::::::::::::::::::::."
+        print "::::::::::::::::::::::::::::::::::::::::::."
+        if str_data == "": return "ERROR: Cannot read file '"+file_name+"/"+data_dir+"'"
+
+       	return self.load_data(str_data, table_name, True)
