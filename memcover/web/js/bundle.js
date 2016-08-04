@@ -54,6 +54,7 @@
 	
 	var App = __webpack_require__(/*! ./mainApp */ 3);
 
+  var first = true;
 	var XLSX = __webpack_require__(/*! xlsx */ 209);
 	
 	// ----------------------------------------------------------
@@ -2540,6 +2541,10 @@
 	    mixins: [React.addons.LinkedStateMixin],
 	    getInitialState: function() {
 		var table = this.props.table || this.props.options.tables[0];
+		if (this.props.options.columns[table].length == 0){
+			alert("You must load data for use this tool\nUse 'File > Open' menu to load a file\n");
+			return null;
+		}
 		return {
 		    table: table,
 		    xColumn: this.props.xColumn || this.props.options.columns[table][0].name,
@@ -2601,6 +2606,10 @@
 	    mixins: [React.addons.LinkedStateMixin],
 	    getInitialState: function() {
 		var table = this.props.table || this.props.options.tables[0];
+		if (this.props.options.columns[table].length == 0){
+			alert("You must load data for use this tool\nUse 'File > Open' menu to load a file\n");
+			return null;
+		}
 		return {
 		    table: table,
 		    column: this.props.column || this.props.options.columns[table][0].name,
@@ -33466,7 +33475,9 @@
 	    },
 
 			concatFileMenuData: function(){
-		this.refs.concatFileData.getDOMNode().click();
+				var table = Object.keys(this.props.tables)[0];
+		if (this.props.tables[table].data.length == 1 && this.props.tables[table].data[0].id_index == "first_load") this.refs.openFileData.getDOMNode().click();
+		else this.refs.concatFileData.getDOMNode().click();
 	    },
 	
 	    render: function() {
