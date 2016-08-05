@@ -108,10 +108,11 @@ class TableService(INamed):
         index_col = 'id_index'
 
         # Clean CSV (extra columns with comma ',')
-        try:
-            lines = [line.rstrip(',') for line in str_data.encode('utf-8').split('\n')]
-            str_data = '\n'.join(lines)
-        except: pass
+        #try:
+        #    lines = [line.rstrip(',') for line in str_data.encode('utf-8').split('\n')]
+        #    str_data = '\n'.join(lines)
+        #except: pass
+        str_data = self.process_data(str_data)
 
         # Receive the data as string
         data=StringIO(str_data)
@@ -139,8 +140,9 @@ class TableService(INamed):
         index_col = 'id_index'
 
         # Clean CSV (extra columns with comma ',')
-        lines = [line.rstrip(',') for line in str_data.encode('utf-8').split('\n')]
-        str_data = '\n'.join(lines)
+        #lines = [line.rstrip(',') for line in str_data.encode('utf-8').split('\n')]
+        #str_data = '\n'.join(lines)
+        str_data = self.process_data(str_data)
 
         # Receive the data as string
         data=StringIO(str_data)
@@ -226,7 +228,7 @@ class TableService(INamed):
 
        	return [f for f in listdir(data_dir)]
 
-    def load_data_server(self, file_name, table_name): # Return all filenames of data directory
+    def load_data_server(self, file_name, table_name): # Load a file (on server) by name
         data_dir = "/app/data/import"
 
         absolute_path = data_dir+"/"+file_name
@@ -245,3 +247,18 @@ class TableService(INamed):
         if str_data == "": return "ERROR", "Cannot read file '"+file_name+"/"+data_dir+"'"
 
        	return "OK", self.load_data(str_data, table_name)
+
+    def process_data(self, str_data): # Process data to remove extra rows (intermediate headers, means...)
+        lines = [line.rstrip(',') for line in str_data.encode('utf-8').split('\n')]
+        headers = lines[0]
+        result = [headers]
+
+        for line in lines:
+            if line == headers: continue
+            if float(line.split(',').count("")) >= float(len(headers) / 2): continue
+            if (float(line.split(',').count("")) / float(len(line.split(',')))) >= 0.5: continue
+            result.append(line)
+
+        result = '\n'.join(result)
+
+        return result

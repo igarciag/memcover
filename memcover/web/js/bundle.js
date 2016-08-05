@@ -539,6 +539,9 @@
 							
 							var id_index = diff1.indexOf('id_index');
 							if (id_index > -1) diff1.splice(id_index, 1);
+							for(var j = diff2.length-1; j--;){
+								if (diff2[j] === "") diff2.splice(j, 1);
+							}
 							if( (diff1.length > 0 || diff2.length > 0) && len != 2 ){
 								var msg = "There are unexpected columns\n\n";
 								if(diff1.length > 0){ var msg = msg + "  - Expected columns (missing): '"+diff1.join("', '")+"'\n\n\n";}
@@ -627,6 +630,9 @@
 			
 			var accept_data_ext = ['csv','xls','xlsx','xlsm','xlt'];
 			
+			var uploaded_files = 0;
+			var uploaded_filenames = [];
+
 			// Check file (or files) selected
 			for (var i = 0; i < files.length; i++) {
 				var file_ext = files[i].name.split('.');
@@ -642,6 +648,8 @@
 
 				reader.onload = (function(theFile) {
 					return function (e) {
+						uploaded_files += 1;
+
 						var ext = theFile.name.split('.')[theFile.name.split('.').length - 1];
 						var res = this.result;
 						var tableName = Object.keys(self.state.tables)[0];
@@ -660,11 +668,11 @@
 						var diff1 = cols_schema.filter(function(x) { return cols_new.indexOf(x) < 0 });
 						var diff2 = cols_new.filter(function(x) { return cols_schema.indexOf(x) < 0 });
 
+						for(var j = diff2.length-1; j >= 0;j--){
+							if (diff2[j] === "") diff2.splice(j, 1);
+						}
 						if(diff2.length > 0){
-							for(var j = diff2.length-1; j--;){
-								if (diff2[j] === "") diff2.splice(j, 1);
-							}
-							var msg = "The next columns will be added\n\n";
+							var msg = theFile.name+"\n\nThe next columns will be added\n\n";
 							var msg = msg + "'"+diff2.join("', '")+"'\n\n\n";
 							msg = msg + "Do you accept this?\n";
 							var resp = confirm(msg);
@@ -702,7 +710,9 @@
 								self.setState({"conditions": self.state.conditions});
 							});
 						}
-						alert("DATA UPLOADED FROM '"+theFile.name+"'\n");
+						//alert("DATA UPLOADED FROM '"+theFile.name+"'\n");
+						uploaded_filenames.push(theFile.name);
+						if (uploaded_files == files.length) alert("Data uploaded from:\n\n"+uploaded_filenames.join("\n")+"'\n");
 
 					console.log("NEW STATE:", self.state);
 				};
@@ -767,6 +777,30 @@
 				.then(function(filelist){
 					alert("SELECT A FILE:\n\n"+filelist.join("\n")+"\n");
 					
+					/*
+					// Carga de datos segun Lobby
+					var tableName = "mainTable";
+					var filePath = "/app/data/joined_changed.csv";
+					var schemaPath = "/app/data/joined_changed_schema.json";
+
+					return rpc.call("IOSrv.read_csv", [tableName, filePath, schemaPath]).then(function (table) {
+	          console.log("TABLE:", table);
+						return rpc.call("TableSrv.schema", [table]);
+	        }).then(function(sch){
+						console.log("SCH:", sch);
+
+						self.state.tables.joined.schema = sch;
+									self.state.tables.joined.schema.attributes = _.mapValues(self.state.tables.joined.schema.attributes, function(v,k){v.name = k; return v;});
+									self.state.tables.joined.schema.quantitative_attrs = getQuantitativeAttrs(sch);
+
+						Store.getData(tableName).then(function(rows){
+								console.log("ROWS:", rows);
+								self.state.tables.joined.data = rows;
+								self.setState({"tables": self.state.tables});
+							});
+					});*/
+					
+
 					selected = "BCNs_AT8_all.csv";
 
 					// Load new data and schema if necessary
@@ -33471,13 +33505,13 @@
 	    },
 
 	    openFileMenuData: function(){
-		this.refs.openFileData.getDOMNode().click();
+				this.refs.openFileData.getDOMNode().click();
 	    },
 
 			concatFileMenuData: function(){
 				var table = Object.keys(this.props.tables)[0];
-		if (this.props.tables[table].data.length == 1 && this.props.tables[table].data[0].id_index == "first_load") this.refs.openFileData.getDOMNode().click();
-		else this.refs.concatFileData.getDOMNode().click();
+				if (this.props.tables[table].data.length == 1 && this.props.tables[table].data[0].id_index == "first_load") this.refs.openFileData.getDOMNode().click();
+				else this.refs.concatFileData.getDOMNode().click();
 	    },
 	
 	    render: function() {
@@ -33521,7 +33555,7 @@
 /***/ },
 /* 209 */
 /*!************************!*\
-  !*** external "React" ***!
+  !*** XLSX ***!
   \************************/
 /***/ function(module, exports, __webpack_require__) {
 

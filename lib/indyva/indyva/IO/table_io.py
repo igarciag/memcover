@@ -56,12 +56,23 @@ def read_csv(table_name, filepath, schema=None, fillna="NaN", *args, **kwargs):
         If na_values are specified and keep_default_na is False the default NaN
         values are overridden, otherwise they're appended to
     '''
+    #from os import listdir
+    #dirpath = "/".join(filepath.split("/")[:-1])
+    #onlyfiles = [f for f in listdir(dirpath)]
+    #print ":::::::::::::::::::::::::::::::::::"
+    #print ":::::::::IOSrv.read_csv:::::::::::"
+    #print table_name, filepath, schema
+    #print ":::::::::Archivos en "+dirpath+"::::::::::::"
+    #print onlyfiles
+    #print ":::::::::::::::::::::::::::::::::::"
     if schema is not None:
         if os.path.exists(schema):
             with open(schema) as f:
                 schema = json.load(f, object_pairs_hook=collections.OrderedDict)
 
         else:  # Assume the string is the json representation
+            print ":::::::::Schema en el json.loads::::::::::::"
+            print schema
             schema = json.loads(schema, object_pairs_hook=collections.OrderedDict)
 
     df = pd.read_csv(filepath, *args, **kwargs)
