@@ -292,8 +292,7 @@ class RangeCondition(Condition):
         #=======================================================================
         if domain == None:
             # TODO: Use the max/min of the new schema
-            domain = data.aggregate([{'$match': {attr: {'$type': 1}}},  # Only numbers
-                                     {'$group':
+            domain = data.aggregate([{'$group':
                                       {'_id': {},
                                        'min': {'$min': "$"+attr},
                                        'max': {'$max': "$"+attr}}}]).get_data()[0]

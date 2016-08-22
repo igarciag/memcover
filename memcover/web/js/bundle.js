@@ -136,6 +136,8 @@
 	var AnalysisMenu = __webpack_require__(/*! ./analysisMenu */ 15);
 	var FileMenu = __webpack_require__(/*! ./fileMenu */ 208);
 	var XMenu = __webpack_require__(/*! ./XMenu */ 210);
+	var accept_data_ext = ['csv','xls','xlsx'];
+	var accept_schema_ext = ['json'];
 
 	var PCPChart = reactify(__webpack_require__(/*! ./pcpChart */ 16), "PCPChart");
 	var BoxChart = reactify(__webpack_require__(/*! ./boxChart */ 17), "BoxChart");
@@ -432,8 +434,8 @@
 
 			var files = ev.target.files;
 			
-			var accept_data_ext = ['csv','xls','xlsx','xlsm','xlt'];
-			var accept_schema_ext = ['json'];
+			//var accept_data_ext = ['csv','xls','xlsx','xlsm','xlt'];
+			//var accept_schema_ext = ['json'];
 
 			var file0 = files[0];
 			var file0_ext = file0.name.split('.');
@@ -628,7 +630,7 @@
 
 			var files = ev.target.files;
 			
-			var accept_data_ext = ['csv','xls','xlsx','xlsm','xlt'];
+			//var accept_data_ext = ['csv','xls','xlsx','xlsm','xlt','ods'];
 			
 			var uploaded_files = 0;
 			var uploaded_filenames = [];
@@ -654,7 +656,7 @@
 						var res = this.result;
 						var tableName = Object.keys(self.state.tables)[0];
 
-						if( ext == 'xls' || ext == 'xlsx' ){
+						if( ext != 'csv' ){
 							//alert("ARCHIVO XLS YET UNSUPPORTED");
 							var wb = XLSX.read(res, {type: 'binary'});
 							var ws = wb.Sheets[wb.SheetNames[0]]
@@ -728,7 +730,7 @@
 
 				var files = ev.target.files;
 				
-				var accept_data_ext = ['csv','xls','xlsx','xlsm','xlt'];
+				//var accept_data_ext = ['csv','xls','xlsx','xlsm','xlt'];
 				
 				// Check file (or files) selected
 				for (var i = 0; i < files.length; i++) {
@@ -33530,9 +33532,9 @@
 	
 		      //React.createElement(BS.MenuItem, {header: true}, " File "), 
 		      React.createElement(BS.MenuItem, {onSelect: openFileMenuData}, " Open "),
-		      React.createElement("input", {style: {"display":"none"}, type: "file", multiple:"2", accept: ".csv, .xlsx, .xlsm, .xls, .xlt, .json", ref: "openFileData", onChange: onOpenData}),
+		      React.createElement("input", {style: {"display":"none"}, type: "file", multiple:"2", accept: ".csv, .xlsx, .xls, .json", ref: "openFileData", onChange: onOpenData}),
 		      React.createElement(BS.MenuItem, {onSelect: concatFileMenuData}, " Add data "),
-		      React.createElement("input", {style: {"display":"none"}, type: "file", multiple:"multiple", accept: ".csv, .xlsx, .xlsm, .xls, .xlt", ref: "concatFileData", onChange: onConcatData}),
+		      React.createElement("input", {style: {"display":"none"}, type: "file", multiple:"multiple", accept: ".csv, .xlsx, .xls", ref: "concatFileData", onChange: onConcatData}),
 	
 		      React.createElement(BS.MenuItem, {header: true}, " ", header, " "), 
 		      

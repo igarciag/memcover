@@ -78,6 +78,8 @@ class ConditionService(INamed):
         dispatcher.add_method(partial(self._proxy, 'set_query'), 'set_query')
 
     def _proxy(self, method, condition_oid, *args, **kwargs):
+        print "CONDITIONS:"
+        print self._conditions
         condition = self._conditions[condition_oid]
         result = condition.__getattribute__(method)(*args, **kwargs)
         if isinstance(result, Condition):

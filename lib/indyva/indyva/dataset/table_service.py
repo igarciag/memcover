@@ -249,7 +249,10 @@ class TableService(INamed):
        	return "OK", self.load_data(str_data, table_name)
 
     def process_data(self, str_data): # Process data to remove extra rows (intermediate headers, means...)
-        lines = [line.rstrip(',') for line in str_data.encode('utf-8').split('\n')]
+        #print str_data
+        try: str_data = str_data.encode('utf-8')
+        except: pass
+        lines = [line.rstrip(',') for line in str_data.split('\n')]
         headers = lines[0]
         result = [headers]
 
