@@ -210,6 +210,10 @@ class TableService(INamed):
 
         if not isdir(data_dir): mkdir(data_dir)
 
+        print "______________________________"
+        print listdir("/app/data")
+        print "______________________________"
+
         if file_name in listdir(data_dir):
             return "ERROR: There is already a file called '"+file_name+"'\nPlease, change the filename"
 

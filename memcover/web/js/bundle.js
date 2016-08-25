@@ -761,19 +761,28 @@
 							.then(function(resp){ if(resp != "OK") alert(resp); });
 
 							console.log("FILE '"+theFile.name+"':", res);
+							alert("Imported file '"+theFile.name+"'");
 					};
 					})(f);
 					reader.readAsBinaryString(f);
 				}
 	    },
+
+			filesServer: function(ev){
+					console.log("EV:",ev);
+					console.log("EV.CT:",ev.currentTarget.item);
+			},
 			
 			loadData: function(ev) {
+
+
 				var self = this;
 				var when =  __webpack_require__(/*! when */ 5);
 				var rpc = Context.instance().rpc;
 
 				var tableName = Object.keys(self.state.tables)[0];
 				var selected = "";
+				
 
 				rpc.call("TableSrv.show_data", [])
 				.then(function(filelist){
@@ -867,6 +876,7 @@
 									if ( diff1.indexOf(self.state.cards[card].config.attr) != -1 || diff1.indexOf(self.state.cards[card].config.facetAttr) != -1 ) self.removeCard(card);
 								}
 							}
+							alert("Opened file '"+selected+"'");
 				});
 			},
 	
@@ -1173,8 +1183,8 @@
 				onLoadData: self.loadData,
 				onConcatData: self.concatData,
 				onImportData: self.importData,
-				}
-	
+				onFilesServer: self.filesServer
+				}	
 			)
 	
 		      ), 
@@ -33576,6 +33586,11 @@
 	var _ = __webpack_require__(/*! lodash */ 2);
 	
 	var BS = __webpack_require__(/*! react-bootstrap */ 24);
+	var Button = BS.Button;
+	var Glyphicon = BS.Glyphicon;
+	var ModalTrigger = BS.ModalTrigger;
+
+	var SelectFileMenu = __webpack_require__(/*! ./SelectFileMenu */ 211);
 	
 	module.exports = React.createClass({displayName: "exports",
 	
@@ -33618,14 +33633,23 @@
 			    title: this.props.label}, 
 	
 		      //React.createElement(BS.MenuItem, {header: true}, " File "), 
-		      React.createElement(BS.MenuItem, {onSelect: loadFileMenuData}, " Open "),
-		      React.createElement("input", {style: {"display":"none"}, type: "checkbox", ref: "loadFileData", onChange: onLoadData}),					
-		      //React.createElement("input", {style: {"display":"none"}, ref: "loadFileData", onChange: onLoadData}),
+		      //React.createElement(BS.MenuItem, {onSelect: loadFileMenuData}, " Open "),
+		      //React.createElement("input", {style: {"display":"none"}, type: "checkbox", ref: "loadFileData", onChange: onLoadData}),					
 		      React.createElement(BS.MenuItem, {onSelect: concatFileMenuData}, " Add data "),
 		      React.createElement("input", {style: {"display":"none"}, type: "file", multiple:"multiple", accept: ".csv, .xlsx, .xlsm, .xls, .xlt", ref: "concatFileData", onChange: onConcatData}),
 					React.createElement(BS.MenuItem, {onSelect: importFileMenuData}, " Import "),
 		      React.createElement("input", {style: {"display":"none"}, type: "file", multiple:"multiple", accept: ".csv, .xlsx, .xlsm, .xls, .xlt", ref: "importFileData", onChange: onImportData}),
 	
+					React.createElement(ModalTrigger, {modal: React.createElement(SelectFileMenu, {className: "navbar-btn pull-right", 
+				style:  {"margin-right":10}, 
+				onLoadData: this.props.onLoadData,
+				onFilesServer: this.props.onFilesServer
+				}
+	
+			)}, 
+			  React.createElement(BS.MenuItem, {}, "Open"
+			  )
+			),
 		      React.createElement(BS.MenuItem, {header: true}, " ", header, " "), 
 		      
 		      
@@ -33640,6 +33664,97 @@
 	            )
 		)
 	    }
+	
+	});
+
+
+/***/ },
+/* 211 */
+/*!**************************!*\
+  !*** ./SelectFileMenu.jsx ***!
+  \**************************/
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict'
+	
+	var React = __webpack_require__(/*! react */ 1);
+	var _ = __webpack_require__(/*! lodash */ 2);
+	
+	var BS = __webpack_require__(/*! react-bootstrap */ 24);
+	var Button = BS.Button;
+	var Glyphicon = BS.Glyphicon;
+	var ModalTrigger = BS.ModalTrigger;
+
+	//* AQUI CODIGO QUE DEJE EN fileOptions TODA LA LISTA DE FICHEROS DISPONIBLES PARA ABRIR */
+
+	var Context = __webpack_require__(/*! context */ 4);
+	var context = new Context(window.location.hostname, 'ws', 19000);
+	var rpc = context.rpc;
+	
+	var fileOptions = [];
+	rpc.call("TableSrv.show_data", [])
+				.then(function(filelist){
+					fileOptions = filelist;
+				});
+	
+	var selected = [];
+	
+	module.exports = React.createClass({displayName: "exports",
+	
+	    getDefaultProps: function() {
+		return {
+		    tables: {},
+		    label: "Select a file to open:",
+		    bsStyle: "default"
+		};
+	    },
+
+			clickSubmitButton: function(ev){
+				console.log("SELECTED:", selected);
+				console.log("FILEOPTIONS:", fileOptions);
+				console.log("REFS", this.refs.filesServer);
+				//Todo: Llamada a "loadData" pasando los archivos seleccionados ("selected") como parametro
+				//PERO COMOOO?
+				//this.refs.filesServer.getDOMNode().click();
+				
+	    },
+	    render: function() {
+		var loadFileMenuData = this.loadFileMenuData; 
+		var onLoadData = this.props.onLoadData;
+		var onFilesServer = this.props.onFilesServer;
+		
+		return (
+	
+	      	/*React.createElement(BS.DropdownButton, {className: this.props.className, 
+			    style: this.props.style, 
+			    bsStyle: this.props.bsStyle, 
+			    title: this.props.label}, 
+
+					React.createElement("form", {className: "form-inline"},*/
+
+					React.createElement("div", {style:  {position: "relative"} }, 
+		      React.createElement("label", null, " ", this.props.label, " "),
+					React.createElement("div", {className: "row"}, 
+					React.createElement("div", {className: "col-md-24 two-col"},
+					
+
+			  	fileOptions.map(function(option, i){
+						//if(i==0) return (React.createElement("input", {style:  {"margin-left": 20}, type: "checkbox", ref: "filesServer", key: "cat" + option, 
+				  //label: option, onChange: onFilesServer}, option));
+					return (React.createElement("input", {style:  {"marginLeft": 40}, type: "checkbox", ref: "cat"+i, key: "cat" + option, 
+				  label: option, onChange: function(ev) { var index = selected.indexOf(option); if( index > -1) selected.splice(index, 1); else selected.push(option);  }}, option));
+					//React.createElement("input", {type: "checkbox", ref: "col"+i, key: "col"+i, id: option,
+				    //  label: option, onChange: function(ev) { var index = selected.indexOf(option); if( index > -1) selected.splice(index, 1); else selected.push(option);  }}, option)
+					
+
+			  }),
+		       
+        
+					React.createElement("input", {type: "button", value: " OK ", onClick: this.clickSubmitButton, ref: "filesServer"})
+
+					)))
+		)
+	  }
 	
 	});
 
