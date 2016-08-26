@@ -770,10 +770,9 @@
 
 			filesServer: function(ev){
 					console.log("EV:",ev);
-					console.log("EV.CT:",ev.currentTarget.item);
 			},
 			
-			loadData: function(ev) {
+			loadData: function(sel) {
 
 
 				var self = this;
@@ -786,7 +785,7 @@
 
 				rpc.call("TableSrv.show_data", [])
 				.then(function(filelist){
-					alert("SELECT A FILE:\n\n"+filelist.join("\n")+"\n");
+					//alert("SELECT A FILE:\n\n"+filelist.join("\n")+"\n");
 					
 					/*
 					// Carga de datos segun Lobby
@@ -811,8 +810,8 @@
 							});
 					});*/
 					
-
-					selected = "BCNs_AT8_all.csv";
+					console.log("SELLLL:", sel);
+					selected = sel[0];
 
 					// Load new data and schema if necessary
 					rpc.call("TableSrv.load_data_server", [selected, tableName]) // This function returns the infer schema
@@ -33623,6 +33622,7 @@
 		var onLoadData = this.props.onLoadData;
 		var onConcatData = this.props.onConcatData;
 		var onImportData = this.props.onImportData;
+		var onFilesServer = this.props.onFilesServer;
 		var onExport = this.props.onExport;
 		var header = this.props.header;
 		return (
@@ -33685,8 +33685,6 @@
 	var Glyphicon = BS.Glyphicon;
 	var ModalTrigger = BS.ModalTrigger;
 
-	//* AQUI CODIGO QUE DEJE EN fileOptions TODA LA LISTA DE FICHEROS DISPONIBLES PARA ABRIR */
-
 	var Context = __webpack_require__(/*! context */ 4);
 	var context = new Context(window.location.hostname, 'ws', 19000);
 	var rpc = context.rpc;
@@ -33704,60 +33702,91 @@
 	    getDefaultProps: function() {
 		return {
 		    tables: {},
-		    label: "Select a file to open:",
+		    label: "Select files to open:",
 		    bsStyle: "default"
 		};
 	    },
 
 			clickSubmitButton: function(ev){
-				console.log("SELECTED:", selected);
-				console.log("FILEOPTIONS:", fileOptions);
-				console.log("REFS", this.refs.filesServer);
-				//Todo: Llamada a "loadData" pasando los archivos seleccionados ("selected") como parametro
-				//PERO COMOOO?
-				//this.refs.filesServer.getDOMNode().click();
-				
-	    },
+  			var options = select && select.options;
+
+  			for (var i=0, iLen=options.length; i<iLen; i++) {
+
+    			if (options[i].selected) selected.push(options[i]);
+  			}
+		},
+
 	    render: function() {
 		var loadFileMenuData = this.loadFileMenuData; 
+		var filesMenuServer = this.filesMenuServer; 
 		var onLoadData = this.props.onLoadData;
 		var onFilesServer = this.props.onFilesServer;
+		rpc.call("TableSrv.show_data", [])
+				.then(function(filelist){
+					fileOptions = filelist;
+				});
 		
 		return (
+
+					React.createElement("div", {style:  {position: "relative", bottom: "0px", right: "0px", backgroundColor:"blue", border: "3px solid #73AD21"} },
+					//React.createElement("select", {multiple:"multiple", id: "sel", onChange: function(ev) { var option = ev.target.value; var index = selected.indexOf(option); if( index > -1) selected.splice(index, 1); else selected.push(option); console.log("SELECTED", selected) }},
+					React.createElement("select", {multiple:"multiple", id: "sel"},
+
+					fileOptions.map(function(option, i){
+						return (
+							React.createElement("option", {value: option}, option)
+							
+							);
+					}),
+					//React.createElement("input", {type: "button", value: " OK ", onClick: onFilesServer(selected)})
+					//React.createElement("input", {type: "button", value: " OK ", onClick: this.clickSubmitButton("hola")})
+					//React.createElement("input", {type: "button", value: " OK ", onClick: function(ev) { if(selected.length == 0) alert("Please, select files to open\n"); else onLoadData(selected); } })
+					React.createElement("input", {type: "button", value: " OK ", onClick: function(ev) { selected = []; var sel1 = document.getElementsByTagName('select')[0];
+								for (var i=0, iLen=sel1.options.length; i<iLen; i++) if (sel1.options[i].selected) selected.push(sel1.options[i].value);
+				 				if(selected.length == 0) alert("Please, select files to open\n"); else onLoadData(selected);
+							} }),
+					React.createElement("input", {type: "button", value: " Cancel ", onClick: function(ev) { console.log("CANCEL");	} })
+							
+					))
 	
 	      	/*React.createElement(BS.DropdownButton, {className: this.props.className, 
 			    style: this.props.style, 
 			    bsStyle: this.props.bsStyle, 
 			    title: this.props.label}, 
 
-					React.createElement("form", {className: "form-inline"},*/
+					React.createElement("form", {className: "form-inline"},
+					fileOptions.map(function(option, i){
+						return (
+							React.createElement("div", {class: "col-md-12"},
+							React.createElement("input", {style:  {"marginLeft": 10}, type: "checkbox", ref: "cat"+i, key: "cat" + option, 
+				  			label: option, onChange: function(ev) { var index = selected.indexOf(option); if( index > -1) selected.splice(index, 1); else selected.push(option);  }}, option)
+							)
+							);
+					}),
+					//React.createElement("input", {type: "button", value: " OK ", onClick: onFilesServer(selected)})
+					//React.createElement("input", {type: "button", value: " OK ", onClick: this.clickSubmitButton("hola")})
+					React.createElement("input", {type: "button", value: " OK ", onClick: function(ev) { onLoadData(selected); } })
+					))*/
 
-					React.createElement("div", {style:  {position: "relative"} }, 
+
+
+					/*React.createElement("div", {style:  {position: "relative"} }, 
 		      React.createElement("label", null, " ", this.props.label, " "),
 					React.createElement("div", {className: "row"}, 
 					React.createElement("div", {className: "col-md-24 two-col"},
 					
-
 			  	fileOptions.map(function(option, i){
-						//if(i==0) return (React.createElement("input", {style:  {"margin-left": 20}, type: "checkbox", ref: "filesServer", key: "cat" + option, 
-				  //label: option, onChange: onFilesServer}, option));
-					return (React.createElement("input", {style:  {"marginLeft": 40}, type: "checkbox", ref: "cat"+i, key: "cat" + option, 
-				  label: option, onChange: function(ev) { var index = selected.indexOf(option); if( index > -1) selected.splice(index, 1); else selected.push(option);  }}, option));
-					//React.createElement("input", {type: "checkbox", ref: "col"+i, key: "col"+i, id: option,
-				    //  label: option, onChange: function(ev) { var index = selected.indexOf(option); if( index > -1) selected.splice(index, 1); else selected.push(option);  }}, option)
-					
+						return (React.createElement("input", {style:  {"marginLeft": 40}, type: "checkbox", ref: "cat"+i, key: "cat" + option, 
+				  		label: option, onChange: function(ev) { var index = selected.indexOf(option); if( index > -1) selected.splice(index, 1); else selected.push(option);  }}, option));
+					}),
+					React.createElement("input", {type: "button", value: " OK ", onClick: onFilesServer(selected)})
+					)))*/
 
-			  }),
-		       
-        
-					React.createElement("input", {type: "button", value: " OK ", onClick: this.clickSubmitButton, ref: "filesServer"})
 
-					)))
 		)
 	  }
 	
 	});
-
 
 /***/ }
 /******/ ]);
