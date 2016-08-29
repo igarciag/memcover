@@ -152,7 +152,11 @@ class TableService(INamed):
        	table = self._tables[table_name]
 
         try: max_id_index = table.find_one(sort=[(index_col, -1)])[index_col]
-        except: pass
+        except: max_id_index = 1
+
+        print "MAX:INDEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+        print max_id_index
+        print "MAX:INDEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 
         # Create id_index column
         if index_col in df.columns:
@@ -250,7 +254,8 @@ class TableService(INamed):
 
         if str_data == "": return "ERROR", "Cannot read file '"+file_name+"/"+data_dir+"'"
 
-       	return "OK", self.load_data(str_data, table_name)
+       	#return "OK", self.load_data(str_data, table_name)
+       	return "OK", self.concat_data(str_data, table_name)
 
     def process_data(self, str_data): # Process data to remove extra rows (intermediate headers, means...)
         #print str_data

@@ -488,14 +488,15 @@
 				var reader = new FileReader();
 				ev.target.value = ""; // So same file rise onChange
 
+				var tableName = Object.keys(self.state.tables)[0];
+
 				// Get columns of the old schema
-				var cols_old = Object.keys(self.state.tables.joined.schema.attributes);
+				var cols_old = Object.keys(self.state.tables[tableName].schema.attributes);
 
 				reader.onload = (function(theFile) {
 					return function (e) {
 						var ext = theFile.name.split('.')[theFile.name.split('.').length - 1];
 						var res = this.result;
-						var tableName = Object.keys(self.state.tables)[0];
 
 						if( ext == 'xls' || ext == 'xlsx' ){
 							//alert("ARCHIVO XLS YET UNSUPPORTED");
@@ -772,9 +773,9 @@
 					console.log("EV:",ev);
 			},
 			
-			loadData: function(sel) {
+			loadData: function(sel, op) {
 
-
+				console.log("OP:", op)
 				var self = this;
 				var when =  __webpack_require__(/*! when */ 5);
 				var rpc = Context.instance().rpc;
@@ -783,8 +784,8 @@
 				var selected = "";
 				
 
-				rpc.call("TableSrv.show_data", [])
-				.then(function(filelist){
+				//rpc.call("TableSrv.show_data", [])
+				//.then(function(filelist){
 					//alert("SELECT A FILE:\n\n"+filelist.join("\n")+"\n");
 					
 					/*
@@ -807,11 +808,14 @@
 								console.log("ROWS:", rows);
 								self.state.tables.joined.data = rows;
 								self.setState({"tables": self.state.tables});
-							});
+							})
 					});*/
+				console.log("SELLLL:", sel);
+				selected = sel[0];
+
+				var cols_old = Object.keys(self.state.tables[tableName].schema.attributes);			
 					
-					console.log("SELLLL:", sel);
-					selected = sel[0];
+				sel.map(function(selected, i){
 
 					// Load new data and schema if necessary
 					rpc.call("TableSrv.load_data_server", [selected, tableName]) // This function returns the infer schema
@@ -832,51 +836,56 @@
 									self.state.tables[tableName].schema.attributes = _.mapValues(self.state.tables[tableName].schema.attributes, function(v,k){v.name = k; return v;});
 									self.state.tables[tableName].schema.quantitative_attrs = getQuantitativeAttrs(sch);
 							});
-
-							// Update new data in the state
-							Store.getData(tableName).then(function(rows){
-								self.state.tables[tableName].data = rows;
-								self.setState({"tables": self.state.tables});
-							});
-
-							// Update conditions (filters)
-							rpc.call("ConditionSrv.update_conditions", [])
-							.then( function(condition){
-								for (var cond in condition) {
-									Store.includeAll(cond).then(Store.linkCondition.bind(self,cond));
-								}
-							});
-
-							var selection = self.state.tables[tableName].selection;
-							if ( self.state.conditions[tableName] != undefined && self.state.conditions[tableName][selection] != undefined){
-									rpc.call("ConditionSrv.update_conditions2", [self.state.conditions[tableName][selection]])
-									.then( function(conditions){
-											self.state.conditions[tableName][selection] = conditions;
-											self.setState({"conditions": self.state.conditions});
-									});
-							}
-							//Remove cards with "old" columns
-							for (var card in self.state.cards){
-								if( self.state.cards[card].kind == 'pcp' || self.state.cards[card].kind == 'table'){
-									for (var col in self.state.cards[card].config.columns){
-										if( self.state.cards[card].config.columns[col].included === true && diff1.indexOf(self.state.cards[card].config.columns[col].name) != -1 ){
-											self.removeCard(card);
-											break;
-										}
-									}
-								}
-								else if( self.state.cards[card].kind == 'scatter' ) {
-									if ( diff1.indexOf(self.state.cards[card].config.xColumn) != -1 || diff1.indexOf(self.state.cards[card].config.yColumn) != -1 ) self.removeCard(card);
-								}
-								else if( self.state.cards[card].kind == 'box' ) {
-									if ( diff1.indexOf(self.state.cards[card].config.attr) != -1 || diff1.indexOf(self.state.cards[card].config.facetAttr) != -1 ) self.removeCard(card);
-								}
-								else if( self.state.cards[card].kind == 'categoricalFilter' || self.state.cards[card].kind == 'rangeFilter' ) {
-									if ( diff1.indexOf(self.state.cards[card].config.attr) != -1 || diff1.indexOf(self.state.cards[card].config.facetAttr) != -1 ) self.removeCard(card);
-								}
-							}
-							alert("Opened file '"+selected+"'");
 				});
+
+				// Update new data in the state
+				Store.getData(tableName).then(function(rows){
+					self.state.tables[tableName].data = rows;
+					self.setState({"tables": self.state.tables});
+				});
+
+				// Update conditions (filters)
+				rpc.call("ConditionSrv.update_conditions", [])
+					.then( function(condition){
+						for (var cond in condition) {
+							Store.includeAll(cond).then(Store.linkCondition.bind(self,cond));
+						}
+					});
+
+				var selection = self.state.tables[tableName].selection;
+				if ( self.state.conditions[tableName] != undefined && self.state.conditions[tableName][selection] != undefined){
+					rpc.call("ConditionSrv.update_conditions2", [self.state.conditions[tableName][selection]])
+						.then( function(conditions){
+							self.state.conditions[tableName][selection] = conditions;
+							self.setState({"conditions": self.state.conditions});
+						});
+				}
+				
+				//Remove cards with "old" columns
+				var cols_new = Object.keys(self.state.tables[tableName].schema.attributes);
+				var diff1 = cols_old.filter(function(x) { return cols_new.indexOf(x) < 0 });
+							
+				for (var card in self.state.cards){
+					if( self.state.cards[card].kind == 'pcp' || self.state.cards[card].kind == 'table'){
+						for (var col in self.state.cards[card].config.columns){
+							if( self.state.cards[card].config.columns[col].included === true && diff1.indexOf(self.state.cards[card].config.columns[col].name) != -1 ){
+								self.removeCard(card);
+								break;
+							}
+						}
+					}
+					else if( self.state.cards[card].kind == 'scatter' ) {
+						if ( diff1.indexOf(self.state.cards[card].config.xColumn) != -1 || diff1.indexOf(self.state.cards[card].config.yColumn) != -1 ) self.removeCard(card);
+					}
+					else if( self.state.cards[card].kind == 'box' ) {
+						if ( diff1.indexOf(self.state.cards[card].config.attr) != -1 || diff1.indexOf(self.state.cards[card].config.facetAttr) != -1 ) self.removeCard(card);
+					}
+					else if( self.state.cards[card].kind == 'categoricalFilter' || self.state.cards[card].kind == 'rangeFilter' ) {
+						if ( diff1.indexOf(self.state.cards[card].config.attr) != -1 || diff1.indexOf(self.state.cards[card].config.facetAttr) != -1 ) self.removeCard(card);
+					}
+				}
+					//alert("Opened file '"+selected+"'");
+				//});
 			},
 	
 	    loadAnalysis: function(ev) {
@@ -2381,7 +2390,7 @@
 					  break;
 				      case "box":
 					  tabNode = React.createElement(BoxMenu, {ref: tab.kind, options: tab.options});
-					  break;
+						break;
 				      case "stats":
 					  tabNode = React.createElement(StatsMenu, {ref: tab.kind, options: tab.options});
 				  }
@@ -33684,6 +33693,9 @@
 	var Button = BS.Button;
 	var Glyphicon = BS.Glyphicon;
 	var ModalTrigger = BS.ModalTrigger;
+	var TabbedArea = BS.TabbedArea;
+	var Button = BS.Button;
+	var Modal = BS.Modal;
 
 	var Context = __webpack_require__(/*! context */ 4);
 	var context = new Context(window.location.hostname, 'ws', 19000);
@@ -33696,24 +33708,26 @@
 				});
 	
 	var selected = [];
+
 	
 	module.exports = React.createClass({displayName: "exports",
 	
-	    getDefaultProps: function() {
-		return {
+	  getDefaultProps: function() {
+			return {
 		    tables: {},
 		    label: "Select files to open:",
 		    bsStyle: "default"
-		};
-	    },
+			};
+	  },
 
-			clickSubmitButton: function(ev){
-  			var options = select && select.options;
+		clickSubmitButton: function(ev){
+			console.log("EV:", ev);
+			console.log("EV.TARGET:", ev.target);
+  		var options = select && select.options;
 
-  			for (var i=0, iLen=options.length; i<iLen; i++) {
-
-    			if (options[i].selected) selected.push(options[i]);
-  			}
+  		for (var i=0, iLen=options.length; i<iLen; i++) {
+    		if (options[i].selected) selected.push(options[i]);
+  		}
 		},
 
 	    render: function() {
@@ -33721,14 +33735,60 @@
 		var filesMenuServer = this.filesMenuServer; 
 		var onLoadData = this.props.onLoadData;
 		var onFilesServer = this.props.onFilesServer;
-		rpc.call("TableSrv.show_data", [])
-				.then(function(filelist){
-					fileOptions = filelist;
-				});
 		
+		rpc.call("TableSrv.show_data", [])
+			.then(function(filelist){
+				fileOptions = filelist;
+				console.log("SHOW DATAAA", fileOptions);
+			});
+
+		console.log("3");
+		var self = this;
+		var sizeSelect = 20; //Max size of the select menu
+		if(fileOptions.length < sizeSelect) sizeSelect = fileOptions.length;
+
 		return (
 
-					React.createElement("div", {style:  {position: "relative", bottom: "0px", right: "0px", backgroundColor:"blue", border: "3px solid #73AD21"} },
+				React.createElement(Modal, React.__spread({},  this.props, {bsSize: "large", title: "Open server files", animation: true}), 
+		      React.createElement("div", {className: "modal-body"}, 
+						//React.createElement(TabbedArea, {activeKey: this.clickSubmitButton, onSelect: this.clickSubmitButton}),
+
+						/*React.createElement(BS.ButtonGroup, {style:  {position: "absolute", right: "0px", top: "-11px"} }, 
+	                React.createElement(BS.Button, {className:"btn btn-default active", onClick: function(ev){ var elem = document.getElementsByClassName("btn btn-default active"); console.log("::::",this); console.log("::::",ev);}}, " Open "), 
+	                React.createElement(BS.Button, {className:"btn btn-default", onClick: function(){handleMultiCheck(false)}}, " Add ")
+		      	),*/
+
+	          React.createElement("form", {id:"openAddForm"}, 
+	                React.createElement("input", {type:"radio", name: "radioSelect", id: "rOpen", defaultChecked: true, onChange: this.changeSelection}, " Open "), 
+	                React.createElement("input", {type:"radio", name: "radioSelect", id: "rAdd", onChange: this.changeSelection}, " Add ")
+						),						
+						
+						React.createElement("div", {style:  {position: "relative", width: "50%", margin: "0 auto", left: "0px", right: "0px"} },
+						//React.createElement("select", {multiple:"multiple", id: "sel", onChange: function(ev) { var option = ev.target.value; var index = selected.indexOf(option); if( index > -1) selected.splice(index, 1); else selected.push(option); console.log("SELECTED", selected) }},
+							React.createElement("select", {multiple:"multiple", id: "sel", size: sizeSelect},
+								//rpc.call("TableSrv.show_data", []).then(function(names){fileOptions = names.sort(); console.log("SHOW DATA:", fileOptions)}),
+								fileOptions.map(function(option, i){
+									console.log("OPTION:", option);
+									return (React.createElement("option", {value: option}, option));
+								})	
+							)
+						)
+					),
+
+		      React.createElement("div", {className: "modal-footer"}, 
+						React.createElement(Button, {onClick: this.props.onHide}, "Close"), 
+						React.createElement(Button, {onClick: function(ev) {
+							var open = document.getElementById('rOpen').checked;
+							selected = [];
+							var sel1 = document.getElementsByTagName('select')[0];
+							for (var i=0, iLen=sel1.options.length; i<iLen; i++) if (sel1.options[i].selected) selected.push(sel1.options[i].value);
+				 			if(selected.length == 0) alert("Please, select files to open\n"); else { onLoadData(selected, open); self.props.onHide(); }
+						}, bsStyle: "primary"}, "OK")
+		      )
+		    )
+
+
+					/*React.createElement("div", {style:  {position: "relative", width: "50%", height:"80%", margin: "0 auto", left: "0px", right: "0px", backgroundColor:"blue", border: "3px solid #73AD21"} },
 					//React.createElement("select", {multiple:"multiple", id: "sel", onChange: function(ev) { var option = ev.target.value; var index = selected.indexOf(option); if( index > -1) selected.splice(index, 1); else selected.push(option); console.log("SELECTED", selected) }},
 					React.createElement("select", {multiple:"multiple", id: "sel"},
 
@@ -33747,7 +33807,10 @@
 							} }),
 					React.createElement("input", {type: "button", value: " Cancel ", onClick: function(ev) { console.log("CANCEL");	} })
 							
-					))
+					))*/
+
+
+
 	
 	      	/*React.createElement(BS.DropdownButton, {className: this.props.className, 
 			    style: this.props.style, 
