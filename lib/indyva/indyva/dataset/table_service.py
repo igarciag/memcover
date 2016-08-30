@@ -152,11 +152,7 @@ class TableService(INamed):
        	table = self._tables[table_name]
 
         try: max_id_index = table.find_one(sort=[(index_col, -1)])[index_col]
-        except: max_id_index = 1
-
-        print "MAX:INDEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-        print max_id_index
-        print "MAX:INDEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+        except: max_id_index = 0
 
         # Create id_index column
         if index_col in df.columns:
@@ -209,6 +205,8 @@ class TableService(INamed):
     def import_data(self, str_data, table_name, file_name): # Import file to server-side
         data_dir = "/app/data/import"
 
+        file_name = file_name.encode('utf-8')
+
         from os import listdir, mkdir
         from os.path import isdir
 
@@ -236,7 +234,7 @@ class TableService(INamed):
 
        	return [f for f in listdir(data_dir)]
 
-    def load_data_server(self, file_name, table_name): # Load a file (on server) by name
+    def load_data_server(self, file_name, table_name, openAdd = False): # Load a file (on server) by name
         data_dir = "/app/data/import"
 
         absolute_path = data_dir+"/"+file_name
@@ -254,7 +252,7 @@ class TableService(INamed):
 
         if str_data == "": return "ERROR", "Cannot read file '"+file_name+"/"+data_dir+"'"
 
-       	#return "OK", self.load_data(str_data, table_name)
+       	if openAdd == True: return "OK", self.load_data(str_data, table_name)
        	return "OK", self.concat_data(str_data, table_name)
 
     def process_data(self, str_data): # Process data to remove extra rows (intermediate headers, means...)

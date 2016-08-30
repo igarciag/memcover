@@ -301,8 +301,8 @@ class RangeCondition(Condition):
             raise ValueError("Error creating RangeCondition: " +
                              "domain must be a dict with min and max keys" +
                              " this was provided: " + str(domain))
-
-        domain = {'min':domain['min'], 'max':domain['max']}
+        if domain['min'] == domain['max']: domain = {'min':domain['min'] - 1.0, 'max':domain['max'] + 1.0}
+        else: domain = {'min':domain['min'], 'max':domain['max']}
         self._domain = domain
 
         #=======================================================================
@@ -315,7 +315,7 @@ class RangeCondition(Condition):
             raise ValueError("Error creating RangeCondition: " +
                              "range must be a dict with min and max keys" +
                              " this was provided: " + str(range))
-
+        
         range = {'min': max(range['min'], domain['min']),
                       'max': min(range['max'], domain['max'])}
         self._range = range

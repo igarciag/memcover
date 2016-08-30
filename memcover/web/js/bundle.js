@@ -761,7 +761,7 @@
 							rpc.call("TableSrv.import_data", [res, tableName, theFile.name])
 							.then(function(resp){ if(resp != "OK") alert(resp); });
 
-							console.log("FILE '"+theFile.name+"':", res);
+							//console.log("FILE '"+theFile.name+"':", res);
 							alert("Imported file '"+theFile.name+"'");
 					};
 					})(f);
@@ -818,7 +818,7 @@
 				sel.map(function(selected, i){
 
 					// Load new data and schema if necessary
-					rpc.call("TableSrv.load_data_server", [selected, tableName]) // This function returns the infer schema
+					rpc.call("TableSrv.load_data_server", [selected, tableName, op]) // This function returns the infer schema
 							.then(function(resp){
 									if( resp[0] !== "OK" ){
 										alert("UPLOAD DATA CANCELED\n\n"+resp[1]+"\n");
@@ -836,6 +836,7 @@
 									self.state.tables[tableName].schema.attributes = _.mapValues(self.state.tables[tableName].schema.attributes, function(v,k){v.name = k; return v;});
 									self.state.tables[tableName].schema.quantitative_attrs = getQuantitativeAttrs(sch);
 							});
+							op = false; //Only open the first file (and add the others)
 				});
 
 				// Update new data in the state
@@ -33606,7 +33607,6 @@
 		return {
 		    tables: {},
 		    label: "X",
-		    header: "Export to excel",
 		    bsStyle: "default"
 		};
 	    },
@@ -33644,8 +33644,8 @@
 		      //React.createElement(BS.MenuItem, {header: true}, " File "), 
 		      //React.createElement(BS.MenuItem, {onSelect: loadFileMenuData}, " Open "),
 		      //React.createElement("input", {style: {"display":"none"}, type: "checkbox", ref: "loadFileData", onChange: onLoadData}),					
-		      React.createElement(BS.MenuItem, {onSelect: concatFileMenuData}, " Add data "),
-		      React.createElement("input", {style: {"display":"none"}, type: "file", multiple:"multiple", accept: ".csv, .xlsx, .xlsm, .xls, .xlt", ref: "concatFileData", onChange: onConcatData}),
+		      //React.createElement(BS.MenuItem, {onSelect: concatFileMenuData}, " Add data "),
+		      //React.createElement("input", {style: {"display":"none"}, type: "file", multiple:"multiple", accept: ".csv, .xlsx, .xlsm, .xls, .xlt", ref: "concatFileData", onChange: onConcatData}),
 					React.createElement(BS.MenuItem, {onSelect: importFileMenuData}, " Import "),
 		      React.createElement("input", {style: {"display":"none"}, type: "file", multiple:"multiple", accept: ".csv, .xlsx, .xlsm, .xls, .xlt", ref: "importFileData", onChange: onImportData}),
 	
@@ -33658,7 +33658,7 @@
 			)}, 
 			  React.createElement(BS.MenuItem, {}, "Open"
 			  )
-			),
+			)/*,
 		      React.createElement(BS.MenuItem, {header: true}, " ", header, " "), 
 		      
 		      
@@ -33668,7 +33668,7 @@
 				  table.name
 				  )
 			      )
-			  })
+			  })*/
 		       
 	            )
 		)
@@ -33696,6 +33696,7 @@
 	var TabbedArea = BS.TabbedArea;
 	var Button = BS.Button;
 	var Modal = BS.Modal;
+	var Input = BS.Input;
 
 	var Context = __webpack_require__(/*! context */ 4);
 	var context = new Context(window.location.hostname, 'ws', 19000);
@@ -33721,10 +33722,7 @@
 	  },
 
 		clickSubmitButton: function(ev){
-			console.log("EV:", ev);
-			console.log("EV.TARGET:", ev.target);
   		var options = select && select.options;
-
   		for (var i=0, iLen=options.length; i<iLen; i++) {
     		if (options[i].selected) selected.push(options[i]);
   		}
@@ -33747,6 +33745,18 @@
 		var sizeSelect = 20; //Max size of the select menu
 		if(fileOptions.length < sizeSelect) sizeSelect = fileOptions.length;
 
+		var selectMenu;
+		if(fileOptions.length === 0) selectMenu = React.createElement(Input, {type:"text", value:"No files on the server"});
+		else selectMenu = React.createElement("select", {multiple:"multiple", style: {background: "transparent", fontSize:"14px", margin:"0 auto", width:"100%"},id: "sel", size: sizeSelect},
+								//rpc.call("TableSrv.show_data", []).then(function(names){fileOptions = names.sort(); console.log("SHOW DATA:", fileOptions)}),
+								fileOptions.sort().map(function(option, i){
+									console.log("OPTION:", option);
+									return (
+										React.createElement("option", {style: {padding: "5px"}, value: option}, option)
+										);
+								})	
+							);
+
 		return (
 
 				React.createElement(Modal, React.__spread({},  this.props, {bsSize: "large", title: "Open server files", animation: true}), 
@@ -33758,20 +33768,12 @@
 	                React.createElement(BS.Button, {className:"btn btn-default", onClick: function(){handleMultiCheck(false)}}, " Add ")
 		      	),*/
 
-	          React.createElement("form", {id:"openAddForm"}, 
+	          React.createElement("form", {id:"openAddForm", style:  {position: "relative", width: "50%", height:"80%", margin: "0 auto", left: "0px", right: "0px"} }, 
 	                React.createElement("input", {type:"radio", name: "radioSelect", id: "rOpen", defaultChecked: true, onChange: this.changeSelection}, " Open "), 
-	                React.createElement("input", {type:"radio", name: "radioSelect", id: "rAdd", onChange: this.changeSelection}, " Add ")
-						),						
-						
-						React.createElement("div", {style:  {position: "relative", width: "50%", margin: "0 auto", left: "0px", right: "0px"} },
-						//React.createElement("select", {multiple:"multiple", id: "sel", onChange: function(ev) { var option = ev.target.value; var index = selected.indexOf(option); if( index > -1) selected.splice(index, 1); else selected.push(option); console.log("SELECTED", selected) }},
-							React.createElement("select", {multiple:"multiple", id: "sel", size: sizeSelect},
-								//rpc.call("TableSrv.show_data", []).then(function(names){fileOptions = names.sort(); console.log("SHOW DATA:", fileOptions)}),
-								fileOptions.map(function(option, i){
-									console.log("OPTION:", option);
-									return (React.createElement("option", {value: option}, option));
-								})	
-							)
+	                React.createElement("input", {type:"radio", style:  {position: "relative", marginLeft: "10px"}, name: "radioSelect", id: "rAdd", onChange: this.changeSelection}, " Add ")
+						),				
+						React.createElement("div", {style:  {position: "relative", width: "50%", margin: "0 auto", top: "10px"} },
+							selectMenu
 						)
 					),
 

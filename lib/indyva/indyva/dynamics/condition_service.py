@@ -135,9 +135,7 @@ class ConditionService(INamed):
                 ran = condition._sieve._data.distinct(condition._attr)
                 min_ran = min(ran)
                 max_ran = max(ran)
-                if max_ran == min_ran:
-                    min_ran -= 1
-                    max_ran += 1
+
                 relative_max = condition._to_relative(condition._range['max'])
                 relative_min = condition._to_relative(condition._range['min'])
                 
