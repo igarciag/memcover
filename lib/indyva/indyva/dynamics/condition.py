@@ -125,7 +125,14 @@ class CategoricalCondition(Condition):
         Condition.__init__(self, data, name, enabled=enabled, prefix=prefix)
         self._attr = attr
         self._bins = bins
-        
+        #print "______________________________________________________________________________"
+        #print "______________________________________________________________________________"
+        #from pprint import pprint
+        #pprint(data.schema)
+        #print type(data.schema)
+        #print "______________________________________________________________________________"
+        #print "______________________________________________________________________________"
+
         if data.schema.attributes[attr].attribute_type not in ['CATEGORICAL', 'ORDINAL']:
             raise NotImplementedError('Bins not yet implemented')
         if bins is not None:

@@ -110,7 +110,7 @@ class TableSchema(DataSetSchema):
 
         self._schema['dataset_type'] = DataSetTypes.TABLE
         self._schema['attributes'] = OrderedDict()
-        self._schema['order'] = []
+        self._schema['order'] = [] 
 
         for name in attributes if order is None else order:
             self.add_attribute(name, attributes[name])

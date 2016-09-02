@@ -154,6 +154,7 @@
 	var Button = BS.Button;
 	var Glyphicon = BS.Glyphicon;
 	var ModalTrigger = BS.ModalTrigger;
+	var Input = BS.Input;
 
 
 	function getQuantitativeAttrs(schema) {
@@ -520,7 +521,7 @@
 							}
 
 							// Load new schema
-							rpc.call("TableSrv.load_schema",[tableName, res])
+							rpc.call("TableSrv.save_schema",[tableName, res])
 								.then(function(sch){
 									cols_old = Object.keys(sch.attributes);
 									self.state.tables[tableName].schema = sch;
@@ -811,7 +812,6 @@
 							})
 					});*/
 				console.log("SELLLL:", sel);
-				selected = sel[0];
 
 				var cols_old = Object.keys(self.state.tables[tableName].schema.attributes);			
 					
@@ -825,13 +825,6 @@
 										return;
 									}
 									var sch = resp[1];
-									/*var msg = "The infered schema is:\n";
-									for (var i in sch.attributes) {
-										msg = msg + i + " : " + sch.attributes[i].attribute_type + "\n";
-									}
-									msg = msg + "\nDo you accept this schema?";
-									var resp = confirm(msg);
-									if (resp == false) return;*/
 									self.state.tables[tableName].schema = sch;
 									self.state.tables[tableName].schema.attributes = _.mapValues(self.state.tables[tableName].schema.attributes, function(v,k){v.name = k; return v;});
 									self.state.tables[tableName].schema.quantitative_attrs = getQuantitativeAttrs(sch);
@@ -887,6 +880,30 @@
 				}
 					//alert("Opened file '"+selected+"'");
 				//});
+			},
+
+			saveSchema: function(newSchema, originalNames, datasetName) {
+				var self = this;
+				var when =  __webpack_require__(/*! when */ 5);
+				var rpc = Context.instance().rpc;
+
+				var tableName = Object.keys(self.state.tables)[0];
+
+				self.state.tables[tableName].dataset_name = datasetName;
+				
+				self.state.tables[tableName].schema = newSchema;
+
+				rpc.call("TableSrv.save_schema", [tableName, newSchema, originalNames, datasetName]) // This function returns the infer schema
+							.then(function(resp){
+								console.log(resp);
+							});
+
+				Store.getData(tableName).then(function(rows){
+					self.state.tables[tableName].data = rows;
+					self.setState({"tables": self.state.tables});
+				});
+
+				console.log("NEW_SCHEMA:",self.state.tables[tableName].schema);
 			},
 	
 	    loadAnalysis: function(ev) {
@@ -1126,9 +1143,13 @@
 		    );
 		});
 	
-		var columns = _.mapValues(self.state.tables, function(table){
+		/*var columns = _.mapValues(self.state.tables, function(table){
 		    return _.map(table.schema.attributes, function(v, key){return {name: v.name, attribute_type: v.attribute_type};});
+		});*/
+		var columns = _.mapValues(self.state.tables, function(table){
+		    return _.map(table.schema.order, function(v, key){ return {name: v, attribute_type: table.schema.attributes[v].attribute_type};});
 		});
+
 		var quantitativeColumns = _.mapValues(columns, function(tableColumns){
 		    return _.filter(tableColumns, {attribute_type: "QUANTITATIVE"});
 		});
@@ -1152,7 +1173,8 @@
 	
 		return (
 		    React.createElement("div", {className: "mainApp"}, 
-		    React.createElement(Navbar, {brand: "Memcover", fixedTop: true}, 
+		    React.createElement(Navbar, {brand: "Memcover", fixedTop: true},
+				
 				React.createElement(ModalTrigger, {modal: React.createElement(CardCreationMenu, {tabs: creationVisMenuTabs, onCreateCard: this.addCard})}, 
 			  React.createElement(Button, {className: "navbar-btn pull-right", bsStyle: "primary"}, 
 			  React.createElement(Glyphicon, {glyph: "plus"}), " Visualization"
@@ -1192,7 +1214,9 @@
 				onLoadData: self.loadData,
 				onConcatData: self.concatData,
 				onImportData: self.importData,
-				onFilesServer: self.filesServer
+				onFilesServer: self.filesServer,
+				onSaveSchema: self.saveSchema,
+				currentState: self.state
 				}	
 			)
 	
@@ -2694,6 +2718,8 @@
 		    value: this.state.table,
 		    requestChange: this.handleTableChange
 		};
+
+		console.log("COLUUUUUUUMNS:", columns);
 	
 		return (
 	            React.createElement("div", null, 
@@ -33600,6 +33626,7 @@
 	var ModalTrigger = BS.ModalTrigger;
 
 	var SelectFileMenu = __webpack_require__(/*! ./SelectFileMenu */ 211);
+	var EditorSchemaMenu = __webpack_require__(/*! ./EditorSchemaMenu */ 212);
 	
 	module.exports = React.createClass({displayName: "exports",
 	
@@ -33632,8 +33659,13 @@
 		var onConcatData = this.props.onConcatData;
 		var onImportData = this.props.onImportData;
 		var onFilesServer = this.props.onFilesServer;
+		var onSaveSchema = this.props.onSaveSchema;
 		var onExport = this.props.onExport;
 		var header = this.props.header;
+		var currentState = this.props.currentState;
+		var tableName = Object.keys(this.props.currentState.tables)[0];
+		
+
 		return (
 	
 	            React.createElement(BS.DropdownButton, {className: this.props.className, 
@@ -33649,16 +33681,28 @@
 					React.createElement(BS.MenuItem, {onSelect: importFileMenuData}, " Import "),
 		      React.createElement("input", {style: {"display":"none"}, type: "file", multiple:"multiple", accept: ".csv, .xlsx, .xlsm, .xls, .xlt", ref: "importFileData", onChange: onImportData}),
 	
-					React.createElement(ModalTrigger, {modal: React.createElement(SelectFileMenu, {className: "navbar-btn pull-right", 
-				style:  {"margin-right":10}, 
-				onLoadData: this.props.onLoadData,
-				onFilesServer: this.props.onFilesServer
-				}
-	
-			)}, 
-			  React.createElement(BS.MenuItem, {}, "Open"
-			  )
-			)/*,
+					React.createElement(ModalTrigger, {modal: React.createElement(SelectFileMenu, {className: "navbar-btn pull-right", id: "modalSelectFile",
+								style:  {"margin-right":10}, 
+								onLoadData: this.props.onLoadData,
+								onFilesServer: this.props.onFilesServer,
+								onSaveSchema: this.props.onSaveSchema,
+								currentState: this.props.currentState
+							}
+				
+						)}, 
+						React.createElement(BS.MenuItem, {}, "Open")
+					),
+			
+					React.createElement(ModalTrigger, {modal: React.createElement(EditorSchemaMenu, {className: "navbar-btn pull-right", id: "modalEditSchema1",
+							style:  {"margin-right":10}, 
+							onSaveSchema: this.props.onSaveSchema,
+							currentState: this.props.currentState,
+							datasetName: this.props.currentState.tables[tableName].dataset_name
+						}
+				
+						)},
+						React.createElement(BS.MenuItem, {}, "Edit schema")
+					)/*,
 		      React.createElement(BS.MenuItem, {header: true}, " ", header, " "), 
 		      
 		      
@@ -33688,6 +33732,8 @@
 	
 	var React = __webpack_require__(/*! react */ 1);
 	var _ = __webpack_require__(/*! lodash */ 2);
+
+	var EditorSchemaMenu = __webpack_require__(/*! ./EditorSchemaMenu */ 212);
 	
 	var BS = __webpack_require__(/*! react-bootstrap */ 24);
 	var Button = BS.Button;
@@ -33733,6 +33779,7 @@
 		var filesMenuServer = this.filesMenuServer; 
 		var onLoadData = this.props.onLoadData;
 		var onFilesServer = this.props.onFilesServer;
+		var currentState = this.props.currentState;		
 		
 		rpc.call("TableSrv.show_data", [])
 			.then(function(filelist){
@@ -33746,7 +33793,7 @@
 		if(fileOptions.length < sizeSelect) sizeSelect = fileOptions.length;
 
 		var selectMenu;
-		if(fileOptions.length === 0) selectMenu = React.createElement(Input, {type:"text", value:"No files on the server"});
+		if(fileOptions.length === 0) selectMenu = React.createElement(Input, {type:"text", value:"No files on the server", disabled:"disabled"});
 		else selectMenu = React.createElement("select", {multiple:"multiple", style: {background: "transparent", fontSize:"14px", margin:"0 auto", width:"100%"},id: "sel", size: sizeSelect},
 								//rpc.call("TableSrv.show_data", []).then(function(names){fileOptions = names.sort(); console.log("SHOW DATA:", fileOptions)}),
 								fileOptions.sort().map(function(option, i){
@@ -33760,7 +33807,7 @@
 		return (
 
 				React.createElement(Modal, React.__spread({},  this.props, {bsSize: "large", title: "Open server files", animation: true}), 
-		      React.createElement("div", {className: "modal-body"}, 
+		      React.createElement("div", {className: "modal-body"},
 						//React.createElement(TabbedArea, {activeKey: this.clickSubmitButton, onSelect: this.clickSubmitButton}),
 
 						/*React.createElement(BS.ButtonGroup, {style:  {position: "absolute", right: "0px", top: "-11px"} }, 
@@ -33778,74 +33825,204 @@
 					),
 
 		      React.createElement("div", {className: "modal-footer"}, 
-						React.createElement(Button, {onClick: this.props.onHide}, "Close"), 
+						React.createElement(Button, {onClick: this.props.onHide}, "Close"),
+						React.createElement(ModalTrigger, {modal: React.createElement(EditorSchemaMenu, {className: "navbar-btn pull-right", id: "modalEditSchema2",
+										style:  {"margin-right":10}, 
+										onSaveSchema: this.props.onSaveSchema,
+										currentState: this.props.currentState,
+										propsSelectFile: this.props,
+										selected: document.getElementsByTagName('select')[0]
+									}
+	
+								)},
+							React.createElement(Button, {onClick: function(ev) {
+								var open = document.getElementById('rOpen').checked;
+								selected = [];
+								var sel1 = document.getElementsByTagName('select')[0];
+								for (var i=0, iLen=sel1.options.length; i<iLen; i++) if (sel1.options[i].selected) selected.push(sel1.options[i].value);
+								if(selected.length == 0) {alert("Please, select files to open\n"); return;}
+								onLoadData(selected, open);
+								//self.props.onHide();
+							}, bsStyle: "primary"}, "OK")
+						)
+		      )
+		    )
+			)
+	  }
+	
+	});
+
+/***/ },
+/* 212 */
+/*!**************************!*\
+  !*** ./EditorSchemaMenu.jsx ***!
+  \**************************/
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict'
+	
+	var React = __webpack_require__(/*! react */ 1);
+	var _ = __webpack_require__(/*! lodash */ 2);
+	
+	var BS = __webpack_require__(/*! react-bootstrap */ 24);
+	var Button = BS.Button;
+	var Glyphicon = BS.Glyphicon;
+	var ModalTrigger = BS.ModalTrigger;
+	var TabbedArea = BS.TabbedArea;
+	var Button = BS.Button;
+	var Modal = BS.Modal;
+	var Input = BS.Input;
+
+	var Context = __webpack_require__(/*! context */ 4);
+	var context = new Context(window.location.hostname, 'ws', 19000);
+	var rpc = context.rpc;
+
+	
+	module.exports = React.createClass({displayName: "exports",
+	
+	  getDefaultProps: function() {
+			return {
+		    tables: {},
+		    label: "Select files to open:",
+		    bsStyle: "default"
+			};
+	  },
+
+	    render: function() {
+		var self = this;
+
+		var loadFileMenuData = this.loadFileMenuData; 
+		var filesMenuServer = this.filesMenuServer;
+		var onSaveSchema = this.props.onSaveSchema;		
+		var propsSelectFile = this.props.propsSelectFile;
+		var datasetName = this.props.datasetName;
+		var selected = this.props.selected;
+		var currentState = this.props.currentState;
+		var tableName = Object.keys(this.props.currentState.tables)[0];
+		var currentSchema = this.props.currentState.tables[tableName].schema;
+		var currentAttributes = currentSchema.attributes;
+		var currentOrder = currentSchema.order;
+
+		var attributeTypes = ["Categorical", "Quantitative", "Ordinal"];
+		var changedSchema = currentSchema;
+		var originalNames = {};
+		var emptyNames = 0;
+
+		var cardEditSchema = function(attr, j){
+							return (
+									//React.createElement("div", {className: "form-group", style:{margin: "0 auto"}},
+									React.createElement("div", {className: "row", style:{}},
+										//React.createElement("div", {className: "col-md-6"},
+										/*React.createElement('div', {className: 'btn btn-xs btn-default card-anchor card-move'},
+	                		React.createElement('span', { className: 'icon glyphicon glyphicon-move' })
+	            			),*/
+
+										React.createElement("div", {className: "col-xs-8"},										
+												React.createElement(Input, {className: "form-control", type: "text", id: attr, defaultValue: attr, style:{/*, marginLeft:"10px"*/}, onChange: function (ev){
+															var oldName = ev.target.id;
+															var newName = ev.target.value;
+															if(newName in changedSchema.attributes){ alert("You can't rename two attributes with the same name"); return; }
+															if(newName == "") emptyNames++; 
+															if(oldName == "") emptyNames--; 
+															changedSchema.attributes[oldName].name = newName;
+															changedSchema.attributes[newName] = changedSchema.attributes[oldName];
+															delete changedSchema.attributes[oldName];													
+															ev.target.id = newName;
+
+															for(var key in changedSchema.order) if(changedSchema.order[key] === oldName) changedSchema.order[key] = newName;
+																		
+															for(var key in changedSchema.quantitative_attrs) if(changedSchema.quantitative_attrs[key] === oldName) changedSchema.quantitative_attrs[key] = newName;
+
+															originalNames[attr] = newName;
+														}
+													}
+												)
+										),
+										React.createElement("div", {className: "col-xs-4"},
+												React.createElement("select", {className: "form-control", id: "sel"+i, style: {background: "#428bca", color: "#fff"}, onChange: function (ev){
+																changedSchema.attributes[originalNames[attr]].attribute_type = ev.target.value;
+															}
+														},
+														attributeTypes.map(function(attrType, j){
+																if(currentAttributes[attr].attribute_type.toLowerCase() == attrType.toLowerCase()){
+																	return (
+																		React.createElement("option", {selected: "selected", value: attrType}, attrType)
+																	)
+																} else {
+																	return (
+																		React.createElement("option", {value: attrType}, attrType)
+																	)
+																}
+															}
+														)
+												)
+										)
+									)
+							)
+		}
+
+		if(!datasetName){
+			selected = [];
+			var sel1 = document.getElementsByTagName('select')[0];
+			for (var i=0, iLen=sel1.options.length; i<iLen; i++) if (sel1.options[i].selected) selected.push(sel1.options[i].value);
+			if(selected.length == 1) datasetName = selected[0].split('.')[0];
+			else datasetName = "combined";
+		}
+
+		return (
+
+				React.createElement(Modal, React.__spread({},  this.props, {bsSize: "large", title: "Edit current schema", animation: true}), 
+		      React.createElement("div", {className: "modal-body"}, 
+		      	//React.createElement("div", {className: "container"},
+					//React.createElement("div", {className: "container", style:  {position: "relative", width: "50%", margin: "0 auto"}},
+						 
+						React.createElement("div", {style:  {position: "relative", width: "40%", margin: "0 auto", marginBottom: "10px"} },
+								React.createElement("label", null, "Dataset name:"),
+								React.createElement(Input, {type: "text", id: "tableName", defaultValue: datasetName, onChange: function (ev){
+											datasetName = ev.target.value;
+										}
+								}//)
+						)
+						),   
+	          /*React.createElement("form", {className:"form", style: {position: "relative", width: "100%", height:"80%", margin: "0 auto"}},							
+							//React.createElement("div", {className: "row"},
+							//	React.createElement("div", {className: "form-group", style: {margin:"0 auto", width:"100%"}},
+									React.createElement("label", {style: {margin:"0 auto", width:"50%"}}, "Attribute name:"),
+									React.createElement("label", {style: {margin:"0 auto", width:"50%"}}, "Attribute type:")
+							//)
+							),*/
+							//React.createElement("form", {className: "form-inline", style:  {position: "relative", width: "100%", margin: "0 auto"}},					
+							React.createElement("div", {style:  {width: "60%", margin: "0 auto"} },
+	          	
+								currentOrder.map(function(attr, i){
+									if(attr != "id_index"){
+										originalNames[attr] = attr;
+										return(
+											//React.createElement("div", {className: "card", style: {position: "relative", marginTop:"10px", margin:"0 auto", width:"50%"}},
+												cardEditSchema(attr, i)
+											//)
+										)
+									}
+								}
+							)
+							//)		
+						)
+					),
+
+		      React.createElement("div", {className: "modal-footer"}, 
+						React.createElement(Button, {onClick: this.props.onHide}, "Cancel"), 
 						React.createElement(Button, {onClick: function(ev) {
-							var open = document.getElementById('rOpen').checked;
-							selected = [];
-							var sel1 = document.getElementsByTagName('select')[0];
-							for (var i=0, iLen=sel1.options.length; i<iLen; i++) if (sel1.options[i].selected) selected.push(sel1.options[i].value);
-				 			if(selected.length == 0) alert("Please, select files to open\n"); else { onLoadData(selected, open); self.props.onHide(); }
+							console.log("OK", changedSchema);
+							// Save the edited schema
+							//onSaveSchema(changedSchema, originalNames, datasetName);
+
+							if(emptyNames > 0){ alert("Empty attribute names not allowed"); return; }
+							//if(selected.length == 0) alert("Please, select files to open\n"); else { onLoadData(selected, open); self.props.onHide(); }
+							if (propsSelectFile) propsSelectFile.onHide();							
+							self.props.onHide();
 						}, bsStyle: "primary"}, "OK")
 		      )
 		    )
-
-
-					/*React.createElement("div", {style:  {position: "relative", width: "50%", height:"80%", margin: "0 auto", left: "0px", right: "0px", backgroundColor:"blue", border: "3px solid #73AD21"} },
-					//React.createElement("select", {multiple:"multiple", id: "sel", onChange: function(ev) { var option = ev.target.value; var index = selected.indexOf(option); if( index > -1) selected.splice(index, 1); else selected.push(option); console.log("SELECTED", selected) }},
-					React.createElement("select", {multiple:"multiple", id: "sel"},
-
-					fileOptions.map(function(option, i){
-						return (
-							React.createElement("option", {value: option}, option)
-							
-							);
-					}),
-					//React.createElement("input", {type: "button", value: " OK ", onClick: onFilesServer(selected)})
-					//React.createElement("input", {type: "button", value: " OK ", onClick: this.clickSubmitButton("hola")})
-					//React.createElement("input", {type: "button", value: " OK ", onClick: function(ev) { if(selected.length == 0) alert("Please, select files to open\n"); else onLoadData(selected); } })
-					React.createElement("input", {type: "button", value: " OK ", onClick: function(ev) { selected = []; var sel1 = document.getElementsByTagName('select')[0];
-								for (var i=0, iLen=sel1.options.length; i<iLen; i++) if (sel1.options[i].selected) selected.push(sel1.options[i].value);
-				 				if(selected.length == 0) alert("Please, select files to open\n"); else onLoadData(selected);
-							} }),
-					React.createElement("input", {type: "button", value: " Cancel ", onClick: function(ev) { console.log("CANCEL");	} })
-							
-					))*/
-
-
-
-	
-	      	/*React.createElement(BS.DropdownButton, {className: this.props.className, 
-			    style: this.props.style, 
-			    bsStyle: this.props.bsStyle, 
-			    title: this.props.label}, 
-
-					React.createElement("form", {className: "form-inline"},
-					fileOptions.map(function(option, i){
-						return (
-							React.createElement("div", {class: "col-md-12"},
-							React.createElement("input", {style:  {"marginLeft": 10}, type: "checkbox", ref: "cat"+i, key: "cat" + option, 
-				  			label: option, onChange: function(ev) { var index = selected.indexOf(option); if( index > -1) selected.splice(index, 1); else selected.push(option);  }}, option)
-							)
-							);
-					}),
-					//React.createElement("input", {type: "button", value: " OK ", onClick: onFilesServer(selected)})
-					//React.createElement("input", {type: "button", value: " OK ", onClick: this.clickSubmitButton("hola")})
-					React.createElement("input", {type: "button", value: " OK ", onClick: function(ev) { onLoadData(selected); } })
-					))*/
-
-
-
-					/*React.createElement("div", {style:  {position: "relative"} }, 
-		      React.createElement("label", null, " ", this.props.label, " "),
-					React.createElement("div", {className: "row"}, 
-					React.createElement("div", {className: "col-md-24 two-col"},
-					
-			  	fileOptions.map(function(option, i){
-						return (React.createElement("input", {style:  {"marginLeft": 40}, type: "checkbox", ref: "cat"+i, key: "cat" + option, 
-				  		label: option, onChange: function(ev) { var index = selected.indexOf(option); if( index > -1) selected.splice(index, 1); else selected.push(option);  }}, option));
-					}),
-					React.createElement("input", {type: "button", value: " OK ", onClick: onFilesServer(selected)})
-					)))*/
 
 
 		)

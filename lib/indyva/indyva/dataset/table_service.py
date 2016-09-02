@@ -39,10 +39,10 @@ class TableService(INamed):
         dispatcher.add_method(self.del_table)
         dispatcher.add_method(self.load_data)
         dispatcher.add_method(self.concat_data)
-        dispatcher.add_method(self.load_schema)
         dispatcher.add_method(self.import_data)        
         dispatcher.add_method(self.show_data)        
         dispatcher.add_method(self.load_data_server)
+        dispatcher.add_method(self.save_schema)
         # TableView properties
         dispatcher.add_method(partial(self._proxy_property, 'name'), 'name')
         dispatcher.add_method(partial(self._proxy_property, 'index'), 'index')
@@ -125,7 +125,7 @@ class TableService(INamed):
 
         df.fillna("NaN", inplace=True)
 
-       	table = self._tables[table_name]
+        table = self._tables[table_name]
 
         if (infer == True): table._schema = None
          
@@ -170,6 +170,12 @@ class TableService(INamed):
                 concat_schema[attr_utf] = dict(AttributeSchema.infer_from_data(df[attr_utf])._schema)
                 
             table._schema._schema['attributes'].update(collections.OrderedDict(concat_schema))
+            print "___________________________________________________________________________________"
+            print "___________________________________________________________________________________"
+            from pprint import pprint
+            pprint(table._schema._schema['attributes'])
+            print "___________________________________________________________________________________"
+            print "___________________________________________________________________________________"
 
         dict_data = df.to_dict()
         list_all_insert = []
@@ -191,16 +197,30 @@ class TableService(INamed):
 
         return table._schema
 
-    def load_schema(self, table_name, schema): # Load new schema
-        # Receive the schema as string
-        table = self._tables[table_name]
+    def save_schema(self, table_name, schema, changes=None, datasetName=None): # Save a edited schema
+        data_dir = "/app/data/import"
 
-        # String to OrderedDict
-        schema = json.loads(schema, object_pairs_hook=collections.OrderedDict)
+        if isinstance(schema, basestring): schema = json.loads(schema, object_pairs_hook=collections.OrderedDict)
+        else: schema = collections.OrderedDict(schema)
 
-        table._schema = TableSchema(schema['attributes'], schema['index'])
+        #if not table_name in self._tables.keys(): self._tables[table_name] = self._tables.pop(self._tables.keys()[0])
+        table = self._tables[table_name]        
 
-        return table._schema
+        if not changes is None:
+            for name in changes.keys():
+                if name == changes[name]: del changes[name]
+            table.rename_columns(changes)
+        table._schema = TableSchema(schema['attributes'], schema['index'], schema['order'])
+
+
+        from os import listdir, mkdir
+        from pprint import pprint
+        from os.path import isdir
+
+        with open(data_dir+"/"+datasetName+"_schema.json", "w") as text_file:
+            pprint(table._schema, text_file)
+
+        return "Schema saved"
 
     def import_data(self, str_data, table_name, file_name): # Import file to server-side
         data_dir = "/app/data/import"
@@ -212,9 +232,9 @@ class TableService(INamed):
 
         if not isdir(data_dir): mkdir(data_dir)
 
-        print "______________________________"
-        print listdir("/app/data")
-        print "______________________________"
+        #print "______________________________"
+        #print listdir("/app/data")
+        #print "______________________________"
 
         if file_name in listdir(data_dir):
             return "ERROR: There is already a file called '"+file_name+"'\nPlease, change the filename"
@@ -232,7 +252,7 @@ class TableService(INamed):
 
         if not isdir(data_dir): mkdir(data_dir)
 
-       	return [f for f in listdir(data_dir)]
+       	return [f for f in listdir(data_dir) if f.endswith(".csv") or f.endswith(".xls") or f.endswith(".xlsx")]
 
     def load_data_server(self, file_name, table_name, openAdd = False): # Load a file (on server) by name
         data_dir = "/app/data/import"
