@@ -161,21 +161,17 @@ class TableService(INamed):
             df.drop(labels=[''], axis=1, inplace = True)
         df.insert(0, index_col, range(max_id_index+1, max_id_index+df.shape[0]+1))
 
-        # Add columns of the new data
+        # Add columns of the new data (Union schemas)
         if new_cols is not None:
             if index_col in new_cols: new_cols.remove(index_col)
             concat_schema = {}
             for attr in new_cols:
-                attr_utf = attr.encode('utf-8')
+                attr_utf = attr#.encode('utf-8')
                 concat_schema[attr_utf] = dict(AttributeSchema.infer_from_data(df[attr_utf])._schema)
                 
-            table._schema._schema['attributes'].update(collections.OrderedDict(concat_schema))
-            print "___________________________________________________________________________________"
-            print "___________________________________________________________________________________"
-            from pprint import pprint
-            pprint(table._schema._schema['attributes'])
-            print "___________________________________________________________________________________"
-            print "___________________________________________________________________________________"
+            #table._schema._schema['attributes'].update(collections.OrderedDict(concat_schema))
+            for add_attr in concat_schema.keys():
+                table.add_column(add_attr, concat_schema[add_attr]['attribute_type'])
 
         dict_data = df.to_dict()
         list_all_insert = []
@@ -204,7 +200,7 @@ class TableService(INamed):
         else: schema = collections.OrderedDict(schema)
 
         #if not table_name in self._tables.keys(): self._tables[table_name] = self._tables.pop(self._tables.keys()[0])
-        table = self._tables[table_name]        
+        table = self._tables[table_name]  
 
         if not changes is None:
             for name in changes.keys():
@@ -254,8 +250,9 @@ class TableService(INamed):
 
        	return [f for f in listdir(data_dir) if f.endswith(".csv") or f.endswith(".xls") or f.endswith(".xlsx")]
 
-    def load_data_server(self, file_name, table_name, openAdd = False): # Load a file (on server) by name
+    def load_data_server(self, file_name, table_name, openAdd = False, cols_old = None): # Load a file (on server) by name
         data_dir = "/app/data/import"
+        index_col = 'id_index'
 
         absolute_path = data_dir+"/"+file_name
 
@@ -270,10 +267,17 @@ class TableService(INamed):
             print "OPENED FILE - " + absolute_path
             str_data = text_file.read();
 
+        if not cols_old is None:
+            import unicodedata
+            table = self._tables[table_name]
+            cols_old = table._schema._schema['attributes'].keys()
+            cols_new = str_data.split('\n')[0].split(',')
+            cols_add = [val for val in cols_new if not val in [val2 for val2 in cols_old]]
+            
         if str_data == "": return "ERROR", "Cannot read file '"+file_name+"/"+data_dir+"'"
 
        	if openAdd == True: return "OK", self.load_data(str_data, table_name)
-       	return "OK", self.concat_data(str_data, table_name)
+       	return "OK", self.concat_data(str_data, table_name, cols_add)
 
     def process_data(self, str_data): # Process data to remove extra rows (intermediate headers, means...)
         #print str_data

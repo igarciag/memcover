@@ -818,7 +818,7 @@
 				sel.map(function(selected, i){
 
 					// Load new data and schema if necessary
-					rpc.call("TableSrv.load_data_server", [selected, tableName, op]) // This function returns the infer schema
+					rpc.call("TableSrv.load_data_server", [selected, tableName, op, cols_old]) // This function returns the infer schema
 							.then(function(resp){
 									if( resp[0] !== "OK" ){
 										alert("UPLOAD DATA CANCELED\n\n"+resp[1]+"\n");
@@ -33896,6 +33896,7 @@
 		var onSaveSchema = this.props.onSaveSchema;		
 		var propsSelectFile = this.props.propsSelectFile;
 		var datasetName = this.props.datasetName;
+		if(!datasetName || datasetName == null) datasetName = "dataset_name";
 		var selected = this.props.selected;
 		var currentState = this.props.currentState;
 		var tableName = Object.keys(this.props.currentState.tables)[0];
@@ -33960,10 +33961,9 @@
 									)
 							)
 		}
-
-		if(!datasetName){
-			selected = [];
-			var sel1 = document.getElementsByTagName('select')[0];
+		selected = [];
+		var sel1 = document.getElementsByTagName('select')[0];
+		if(sel1 != null && sel1 != 'undefined'){
 			for (var i=0, iLen=sel1.options.length; i<iLen; i++) if (sel1.options[i].selected) selected.push(sel1.options[i].value);
 			if(selected.length == 1) datasetName = selected[0].split('.')[0];
 			else datasetName = "combined";
@@ -34015,6 +34015,7 @@
 							console.log("OK", changedSchema);
 							// Save the edited schema
 							//onSaveSchema(changedSchema, originalNames, datasetName);
+							currentState.tables[tableName].dataset_name = datasetName;
 
 							if(emptyNames > 0){ alert("Empty attribute names not allowed"); return; }
 							//if(selected.length == 0) alert("Please, select files to open\n"); else { onLoadData(selected, open); self.props.onHide(); }
