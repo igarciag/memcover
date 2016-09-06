@@ -16,7 +16,8 @@
     "object-assign": "~2.0.0",
     "react-bootstrap": "~0.23.7",
     "classnames": "~2.1.1",
-    "c3": "~0.4.10"
+    "c3": "~0.4.10",
+    "xlsx": "~0.8.0"
   },
   "devDependencies": {
     "jsx-loader": "~0.12.2"
