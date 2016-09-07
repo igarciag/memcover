@@ -20,17 +20,10 @@ module.exports = React.createClass({
 	this.refs.openFile.getDOMNode().click();
     },
 
-    openFileMenuData: function(){
-		this.refs.openFileData.getDOMNode().click();
-	},
-
-
     render: function() {
-	var openFileMenu = this.openFileMenu;
-	var openFileMenuData = this.openFileMenuData; 
+	var openFileMenu = this.openFileMenu; 
 	var onSave = this.props.onSave;
 	var onOpen = this.props.onOpen;
-	var onOpenData = this.props.onOpenData;
 	var onExport = this.props.onExport;
 	var header = this.props.header;
 	return (
@@ -40,9 +33,7 @@ module.exports = React.createClass({
 		    bsStyle={this.props.bsStyle} 
 		    title={this.props.label}>
 
-	      //<BS.MenuItem header> File </BS.MenuItem>
-	      <BS.MenuItem onSelect={openFileMenu}> File </BS.MenuItem>
-	      <input style={{"display":"none"}} type="file" ref="openFileData" onChange={onOpenData} multiple/>
+	      <BS.MenuItem header> File </BS.MenuItem>
 	      <BS.MenuItem onSelect={openFileMenu}> Open Analysis ... </BS.MenuItem>
 	      <input style={{"display":"none"}} type="file" ref="openFile" onChange={onOpen}/>
 	      <BS.MenuItem onSelect={onSave}> Save Analysis </BS.MenuItem>

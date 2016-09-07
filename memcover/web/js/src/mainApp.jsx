@@ -18,6 +18,7 @@ var RangeFilter = require('./rangeFilter');
 var Card = require('./card');
 var CardCreationMenu = require('./cardCreationMenu');
 var AnalysisMenu = require('./analysisMenu');
+var FileMenu = require('./fileMenu');
 
 var PCPChart = reactify(require('./pcpChart'), "PCPChart");
 var BoxChart = reactify(require('./boxChart'), "BoxChart");
@@ -306,6 +307,184 @@ module.exports = React.createClass({
 
     },
 
+				importData: function(ev) {
+				var self = this;
+				var when =  __webpack_require__(/*! when */ 5);
+				var rpc = Context.instance().rpc;
+
+				var files = ev.target.files;
+				
+				//var accept_data_ext = ['csv','xls','xlsx','xlsm','xlt'];
+				
+				// Check file (or files) selected
+				for (var i = 0; i < files.length; i++) {
+					var file_ext = files[i].name.split('.');
+					var file_ext = file_ext[file_ext.length - 1];
+					if ( accept_data_ext.indexOf(file_ext) == -1 ) {
+						alert("El fichero '"+file.name+"' no esta en el formato correcto\n\nAccepted file extensions: "+accept_data_ext.join()+"\n");
+					}
+			
+					var f = files[i];
+
+					var reader = new FileReader();
+					//ev.target.value = ""; // So same file rise onChange
+
+					reader.onload = (function(theFile) {
+						return function (e) {
+							var ext = theFile.name.split('.')[theFile.name.split('.').length - 1];
+							var res = this.result;
+							var tableName = Object.keys(self.state.tables)[0];
+
+							if( ext == 'xls' || ext == 'xlsx' ){
+								var wb = XLSX.read(res, {type: 'binary'});
+								var ws = wb.Sheets[wb.SheetNames[0]]
+								res = XLSX.utils.sheet_to_csv(ws);
+							}
+
+							rpc.call("TableSrv.import_data", [res, tableName, theFile.name])
+							.then(function(resp){ if(resp != "OK") alert(resp); });
+
+							//console.log("FILE '"+theFile.name+"':", res);
+							alert("Imported file '"+theFile.name+"'");
+					};
+					})(f);
+					reader.readAsBinaryString(f);
+				}
+	    },
+
+			
+		loadData: function(sel, op) {
+
+			console.log("OP:", op)
+			var self = this;
+			var when =  __webpack_require__(/*! when */ 5);
+			var rpc = Context.instance().rpc;
+
+			var tableName = Object.keys(self.state.tables)[0];
+			var selected = "";
+			
+
+			//rpc.call("TableSrv.show_data", [])
+			//.then(function(filelist){
+				//alert("SELECT A FILE:\n\n"+filelist.join("\n")+"\n");
+					
+				/*
+				// Carga de datos segun Lobby
+				var tableName = "mainTable";
+				var filePath = "/app/data/joined_changed.csv";
+				var schemaPath = "/app/data/joined_changed_schema.json";
+
+				return rpc.call("IOSrv.read_csv", [tableName, filePath, schemaPath]).then(function (table) {
+          console.log("TABLE:", table);
+					return rpc.call("TableSrv.schema", [table]);
+        }).then(function(sch){
+					console.log("SCH:", sch);
+
+					self.state.tables.joined.schema = sch;
+								self.state.tables.joined.schema.attributes = _.mapValues(self.state.tables.joined.schema.attributes, function(v,k){v.name = k; return v;});
+								self.state.tables.joined.schema.quantitative_attrs = getQuantitativeAttrs(sch);
+
+					Store.getData(tableName).then(function(rows){
+							console.log("ROWS:", rows);
+							self.state.tables.joined.data = rows;
+							self.setState({"tables": self.state.tables});
+						})
+				});*/
+			console.log("SELLLL:", sel);
+
+			var cols_old = Object.keys(self.state.tables[tableName].schema.attributes);			
+					
+			sel.map(function(selected, i){
+
+				// Load new data and schema if necessary
+				rpc.call("TableSrv.load_data_server", [selected, tableName, op, cols_old]) // This function returns the infer schema
+					.then(function(resp){
+							if( resp[0] !== "OK" ){
+								alert("UPLOAD DATA CANCELED\n\n"+resp[1]+"\n");
+								return;
+							}
+							var sch = resp[1];
+							self.state.tables[tableName].schema = sch;
+							self.state.tables[tableName].schema.attributes = _.mapValues(self.state.tables[tableName].schema.attributes, function(v,k){v.name = k; return v;});
+							self.state.tables[tableName].schema.quantitative_attrs = getQuantitativeAttrs(sch);
+					});
+					op = false; //Only open the first file (and add the others)
+		});
+
+		// Update new data in the state
+		Store.getData(tableName).then(function(rows){
+			self.state.tables[tableName].data = rows;
+			self.setState({"tables": self.state.tables});
+		});
+
+		// Update conditions (filters)
+		rpc.call("ConditionSrv.update_conditions", [])
+			.then( function(condition){
+				for (var cond in condition) {
+					Store.includeAll(cond).then(Store.linkCondition.bind(self,cond));
+				}
+			});
+
+		var selection = self.state.tables[tableName].selection;
+		if ( self.state.conditions[tableName] != undefined && self.state.conditions[tableName][selection] != undefined){
+			rpc.call("ConditionSrv.update_conditions2", [self.state.conditions[tableName][selection]])
+				.then( function(conditions){
+					self.state.conditions[tableName][selection] = conditions;
+					self.setState({"conditions": self.state.conditions});
+				});
+		}
+			
+		//Remove cards with "old" columns
+		var cols_new = Object.keys(self.state.tables[tableName].schema.attributes);
+		var diff1 = cols_old.filter(function(x) { return cols_new.indexOf(x) < 0 });
+							
+		for (var card in self.state.cards){
+			if( self.state.cards[card].kind == 'pcp' || self.state.cards[card].kind == 'table'){
+				for (var col in self.state.cards[card].config.columns){
+					if( self.state.cards[card].config.columns[col].included === true && diff1.indexOf(self.state.cards[card].config.columns[col].name) != -1 ){
+						self.removeCard(card);
+						break;
+					}
+				}
+			}
+			else if( self.state.cards[card].kind == 'scatter' ) {
+				if ( diff1.indexOf(self.state.cards[card].config.xColumn) != -1 || diff1.indexOf(self.state.cards[card].config.yColumn) != -1 ) self.removeCard(card);
+			}
+			else if( self.state.cards[card].kind == 'box' ) {
+				if ( diff1.indexOf(self.state.cards[card].config.attr) != -1 || diff1.indexOf(self.state.cards[card].config.facetAttr) != -1 ) self.removeCard(card);
+			}
+			else if( self.state.cards[card].kind == 'categoricalFilter' || self.state.cards[card].kind == 'rangeFilter' ) {
+				if ( diff1.indexOf(self.state.cards[card].config.attr) != -1 || diff1.indexOf(self.state.cards[card].config.facetAttr) != -1 ) self.removeCard(card);
+			}
+		}
+			//alert("Opened file '"+selected+"'");
+		//});
+	},
+
+	saveSchema: function(newSchema, originalNames, datasetName) {
+		var self = this;
+		var when =  __webpack_require__(/*! when */ 5);
+		var rpc = Context.instance().rpc;
+
+		var tableName = Object.keys(self.state.tables)[0];
+
+		self.state.tables[tableName].dataset_name = datasetName;
+			
+		self.state.tables[tableName].schema = newSchema;
+
+		rpc.call("TableSrv.save_schema", [tableName, newSchema, originalNames, datasetName]) // This function returns the infer schema
+				.then(function(resp){
+					console.log(resp);
+				});
+
+		Store.getData(tableName).then(function(rows){
+			self.state.tables[tableName].data = rows;
+			self.setState({"tables": self.state.tables});
+		});
+
+		console.log("NEW_SCHEMA:",self.state.tables[tableName].schema);
+	},
+
     loadAnalysis: function(ev) {
 	var self = this;
 	var when =  require("when");
@@ -587,6 +766,18 @@ module.exports = React.createClass({
 			>
 
 		</AnalysisMenu>
+		    	
+				<FileMenu className="navbar-btn pull-right"
+			style={ {"margin-right":10} }
+			tables={this.state.tables}
+			onExport={function(table){Store.exportTable(table, table.name);}}
+			onLoadData={self.loadData}
+			onImportData={self.importData}
+			onSaveSchema={self.saveSchema}
+			currentState={self.state}
+			>
+
+		</FileMenu>
 
 	      </Navbar>
 
