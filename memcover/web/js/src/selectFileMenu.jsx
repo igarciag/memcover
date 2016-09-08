@@ -12,6 +12,8 @@ var Button = BS.Button;
 var Modal = BS.Modal;
 var Input = BS.Input;
 
+var EditorSchemaMenu = require('./editorSchemaMenu');
+
 var Context = require('context');
 var context = new Context(window.location.hostname, 'ws', 19000);
 var rpc = context.rpc;
@@ -46,7 +48,8 @@ module.exports = React.createClass({
 	var filesMenuServer = this.filesMenuServer; 
 	var onLoadData = this.props.onLoadData;
 	var onFilesServer = this.props.onFilesServer;
-	var currentState = this.props.currentState;	
+	var currentState = this.props.currentState;
+	var schemaa = "";
 
 	rpc.call("TableSrv.show_data", [])
 		.then(function(filelist){
@@ -58,17 +61,18 @@ module.exports = React.createClass({
 	var sizeSelect = 20; //Max size of the select menu
 	if(fileOptions.length < sizeSelect) sizeSelect = fileOptions.length;
 
-	var selectMenu;
-	if(fileOptions.length === 0) selectMenu = React.createElement(Input, {type:"text", value:"No files on the server", disabled:"disabled"});
-	else selectMenu = React.createElement("select", {multiple:"multiple", style: {background: "transparent", fontSize:"14px", margin:"0 auto", width:"100%"},id: "sel", size: sizeSelect},
-			//rpc.call("TableSrv.show_data", []).then(function(names){fileOptions = names.sort(); console.log("SHOW DATA:", fileOptions)}),
-			fileOptions.sort().map(function(option, i){
-				console.log("OPTION:", option);
+	var selectFile;
+	if(fileOptions.length === 0){
+		selectFile = <Input type="text" value="No files on the server" disabled="disabled"/>;
+	} else {
+		selectFile = <select multiple="multiple" id="sel" size={sizeSelect} style={{"background":"transparent", "fontSize":"14px", "margin":"0 auto", "width":"100%"}}>
+			{fileOptions.sort().map(function(option, i){
 				return (
-					React.createElement("option", {style: {padding: "5px"}, value: option}, option)
+					<option value={option} style={{"padding":"5px"}}> {option} </option>
 				);
-			})	
-		);
+			})}
+		</select>;
+	}
 
 	return (
 
@@ -76,14 +80,27 @@ module.exports = React.createClass({
 	      <div className='modal-body'>
 		  	<form id="openAddForm" style={{"position": "relative", "width": "50%", "height":"80%", "margin": "0 auto", "left": "0px", "right": "0px"}}>
 		  		<input type="radio" name="radioSelect" id="rOpen" defaultChecked={true}> Open </input>
-		  		<input type="radio" name="radioSelect" id="rAdd" defaultChecked={true}> Add </input>
+		  		<input type="radio" name="radioSelect" id="rAdd" defaultChecked={false}> Add </input>
 			</form>
-		
+			<div style={{position: "relative", width: "50%", margin: "0 auto", top: "10px"}}>
+				{selectFile}
+			</div>
 		
 	      </div>
 	      <div className='modal-footer'>
-			<Button onClick={this.props.onRequestHide}>Close</Button>
-			<Button onClick={this.handleCreateCard}  bsStyle="primary">Create Card</Button>
+			<Button onClick={this.props.onHide}> Close </Button>
+			<ModalTrigger modal={<EditorSchemaMenu onSaveSchema={this.props.onSaveSchema} currentState={this.props.currentState} propsSelectFile={this.props} selected={document.getElementsByTagName('select')[0]}/>}>
+				<Button onClick={function(ev) {
+					schemaa = "OK";
+					var open = document.getElementById('rOpen').checked;
+					selected = [];
+					var sel1 = document.getElementsByTagName('select')[0];
+					for (var i=0, iLen=sel1.options.length; i<iLen; i++) if (sel1.options[i].selected) selected.push(sel1.options[i].value);
+					if(selected.length == 0) {alert("Please, select files to open\n"); return;}
+					onLoadData(selected, open);
+					//self.props.onHide();
+					}} bsStyle="primary"> OK </Button>
+		  	</ModalTrigger>
 	      </div>
 	    </Modal>
 	)

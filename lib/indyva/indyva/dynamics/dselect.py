@@ -45,12 +45,6 @@ class DynSelect(ConditionSet):
         :param str prefix: Prepended to the name creates the oid
         :return: CategoricalCondition The created condition
         '''
-        from pprint import pprint
-        pprint(self._data.schema)
-        print type(self._data.schema)
-        print "______________________________________________________________________________"
-        print "______________________________________________________________________________"
-        print "______________________________________________________________________________"
         condition = CategoricalCondition(self._data, *args, **kwargs)
         self._add_condition(condition)
         return condition

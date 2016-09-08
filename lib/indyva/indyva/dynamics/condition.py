@@ -125,13 +125,6 @@ class CategoricalCondition(Condition):
         Condition.__init__(self, data, name, enabled=enabled, prefix=prefix)
         self._attr = attr
         self._bins = bins
-        #print "______________________________________________________________________________"
-        #print "______________________________________________________________________________"
-        #from pprint import pprint
-        #pprint(data.schema)
-        #print type(data.schema)
-        #print "______________________________________________________________________________"
-        #print "______________________________________________________________________________"
 
         if data.schema.attributes[attr].attribute_type not in ['CATEGORICAL', 'ORDINAL']:
             raise NotImplementedError('Bins not yet implemented')
@@ -420,14 +413,14 @@ class RangeCondition(Condition):
             raise ValueError('You must set at least the min or the max')
         if min is not None:
             if not relative:
-                self._range['min'] = min
+                self._range['min'] = float(min)
             else:
-                self._range['min'] = self._to_absolute(__builtin__.max(min, 0))
+                self._range['min'] = float(self._to_absolute(__builtin__.max(min, 0)))
         if max is not None:
             if not relative:
-                self._range['max'] = max
-            else:
-                self._range['max'] = self._to_absolute(__builtin__.min(max, 1))
+                self._range['max'] = float(max)
+)            else:
+                self._range['max'] = float(self._to_absolute(__builtin__.min(max, 1)))
 
         self._cache_clear()
         old_index = self._sieve.index

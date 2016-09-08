@@ -2714,9 +2714,9 @@
 	var AnalysisMenu = __webpack_require__(204);
 	var FileMenu = __webpack_require__(205);
 
-	var PCPChart = reactify(__webpack_require__(207), "PCPChart");
-	var BoxChart = reactify(__webpack_require__(208), "BoxChart");
-	var ScatterChart = reactify(__webpack_require__(210), "ScatterChart");
+	var PCPChart = reactify(__webpack_require__(208), "PCPChart");
+	var BoxChart = reactify(__webpack_require__(209), "BoxChart");
+	var ScatterChart = reactify(__webpack_require__(211), "ScatterChart");
 	// var ParSetChart = reactify(require('./parsetChart'), "ParSetChart");
 
 	/**
@@ -3008,7 +3008,7 @@
 
 					var files = ev.target.files;
 					
-					//var accept_data_ext = ['csv','xls','xlsx','xlsm','xlt'];
+					var accept_data_ext = ['csv','xls','xlsx','xlsm','xlt'];
 					
 					// Check file (or files) selected
 					for (var i = 0; i < files.length; i++) {
@@ -3084,9 +3084,15 @@
 								self.setState({"tables": self.state.tables});
 							})
 					});*/
-				console.log("SELLLL:", sel);
 
-				var cols_old = Object.keys(self.state.tables[tableName].schema.attributes);			
+				var cols_old = Object.keys(self.state.tables[tableName].schema.attributes);
+
+				function getQuantitativeAttrs(schema) {
+		    		var attrs = _.pick(schema.attributes, function(value, key) {
+						return value.attribute_type === "QUANTITATIVE" && ! value.shape.length;
+					    });
+		    		return _(attrs).keys().sort().value();
+				}	
 						
 				sel.map(function(selected, i){
 
@@ -3098,9 +3104,13 @@
 									return;
 								}
 								var sch = resp[1];
+								var new_cols = Object.keys(resp[2]);
+
 								self.state.tables[tableName].schema = sch;
 								self.state.tables[tableName].schema.attributes = _.mapValues(self.state.tables[tableName].schema.attributes, function(v,k){v.name = k; return v;});
 								self.state.tables[tableName].schema.quantitative_attrs = getQuantitativeAttrs(sch);
+
+								self.state.tables[tableName].new_cols = new_cols;
 						});
 						op = false; //Only open the first file (and add the others)
 			});
@@ -3153,6 +3163,7 @@
 			}
 				//alert("Opened file '"+selected+"'");
 			//});
+			return "OK"
 		},
 
 		saveSchema: function(newSchema, originalNames, datasetName) {
@@ -3195,10 +3206,15 @@
 		    var state = analysis.state;
 
 		    var tables = _.pluck(state.tables, "name");
+			var tableName = Object.keys(analysis.state.tables)[0];
+			var table = analysis.state.tables[tableName];		
 
 		    rpc.call("DynSelectSrv.clear", [])
 			.then(function(){return rpc.call("GrammarSrv.build", [grammar, tables]); })
 			.done(function(){ self.setState(state); });
+
+			console.log("FIND:");
+			rpc.call("TableSrv.set_data", [tableName, table]).then(function(resp){ console.log("FIND:", resp); });
 		};
 	    },
 
@@ -3411,8 +3427,11 @@
 		    );
 		});
 
-		var columns = _.mapValues(self.state.tables, function(table){
+		/*var columns = _.mapValues(self.state.tables, function(table){
 		    return _.map(table.schema.attributes, function(v, key){return {name: v.name, attribute_type: v.attribute_type};});
+		});*/
+		var columns = _.mapValues(self.state.tables, function(table){
+		    return _.map(table.schema.order, function(v, key){ return {name: v, attribute_type: table.schema.attributes[v].attribute_type};});
 		});
 		var quantitativeColumns = _.mapValues(columns, function(tableColumns){
 		    return _.filter(tableColumns, {attribute_type: "QUANTITATIVE"});
@@ -25432,6 +25451,7 @@
 	var ModalTrigger = BS.ModalTrigger;
 
 	var SelectFileMenu = __webpack_require__(206);
+	var EditorSchemaMenu = __webpack_require__(207);
 
 	module.exports = React.createClass({displayName: "exports",
 
@@ -25457,19 +25477,22 @@
 		var header = this.props.header;
 		var currentState = this.props.currentState;
 		var tableName = Object.keys(this.props.currentState.tables)[0];
+		
 		return (
 
-	            React.createElement(BS.DropdownButton, {className: this.props.className, 
+				React.createElement(BS.DropdownButton, {className: this.props.className, 
 			    style: this.props.style, 
 			    bsStyle: this.props.bsStyle, 
 			    title: this.props.label}, 
 
-		      React.createElement(BS.MenuItem, {onSelect: importFileMenuData}, " Import "), 
+			React.createElement(BS.MenuItem, {onSelect: importFileMenuData}, " Import "), 
 		      React.createElement("input", {style: {"display":"none"}, type: "file", multiple: "multiple", accept: ".csv, .xlsx, .xls", ref: "importFileData", onChange: onImportData}), 
 		      
-		      React.createElement(ModalTrigger, {modal: SelectFileMenu}, 
-
-			  	React.createElement(BS.MenuItem, null, " Open ")		  
+		      React.createElement(ModalTrigger, {modal: React.createElement(SelectFileMenu, {onLoadData: this.props.onLoadData, onSaveSchema: this.props.onSaveSchema, currentState: this.props.currentState})}, 
+				React.createElement(BS.MenuItem, null, " Open ")		  
+			  ), 
+			  React.createElement(ModalTrigger, {modal: React.createElement(EditorSchemaMenu, {datasetName: this.props.currentState.tables[tableName].dataset_name, onSaveSchema: this.props.onSaveSchema, currentState: this.props.currentState})}, 
+				React.createElement(BS.MenuItem, null, " Edit schema ")		  
 			  ), 
 		      
 			  _.values(this.props.tables).map(function(table, i) {
@@ -25505,6 +25528,8 @@
 	var Modal = BS.Modal;
 	var Input = BS.Input;
 
+	var EditorSchemaMenu = __webpack_require__(207);
+
 	var Context = __webpack_require__(57);
 	var context = new Context(window.location.hostname, 'ws', 19000);
 	var rpc = context.rpc;
@@ -25539,7 +25564,8 @@
 		var filesMenuServer = this.filesMenuServer; 
 		var onLoadData = this.props.onLoadData;
 		var onFilesServer = this.props.onFilesServer;
-		var currentState = this.props.currentState;	
+		var currentState = this.props.currentState;
+		var schemaa = "";
 
 		rpc.call("TableSrv.show_data", [])
 			.then(function(filelist){
@@ -25551,17 +25577,18 @@
 		var sizeSelect = 20; //Max size of the select menu
 		if(fileOptions.length < sizeSelect) sizeSelect = fileOptions.length;
 
-		var selectMenu;
-		if(fileOptions.length === 0) selectMenu = React.createElement(Input, {type:"text", value:"No files on the server", disabled:"disabled"});
-		else selectMenu = React.createElement("select", {multiple:"multiple", style: {background: "transparent", fontSize:"14px", margin:"0 auto", width:"100%"},id: "sel", size: sizeSelect},
-				//rpc.call("TableSrv.show_data", []).then(function(names){fileOptions = names.sort(); console.log("SHOW DATA:", fileOptions)}),
+		var selectFile;
+		if(fileOptions.length === 0){
+			selectFile = React.createElement(Input, {type: "text", value: "No files on the server", disabled: "disabled"});
+		} else {
+			selectFile = React.createElement("select", {multiple: "multiple", id: "sel", size: sizeSelect, style: {"background":"transparent", "fontSize":"14px", "margin":"0 auto", "width":"100%"}}, 
 				fileOptions.sort().map(function(option, i){
-					console.log("OPTION:", option);
 					return (
-						React.createElement("option", {style: {padding: "5px"}, value: option}, option)
+						React.createElement("option", {value: option, style: {"padding":"5px"}}, " ", option, " ")
 					);
-				})	
+				})
 			);
+		}
 
 		return (
 
@@ -25569,14 +25596,27 @@
 		      React.createElement("div", {className: "modal-body"}, 
 			  	React.createElement("form", {id: "openAddForm", style: {"position": "relative", "width": "50%", "height":"80%", "margin": "0 auto", "left": "0px", "right": "0px"}}, 
 			  		React.createElement("input", {type: "radio", name: "radioSelect", id: "rOpen", defaultChecked: true}, " Open "), 
-			  		React.createElement("input", {type: "radio", name: "radioSelect", id: "rAdd", defaultChecked: true}, " Add ")
+			  		React.createElement("input", {type: "radio", name: "radioSelect", id: "rAdd", defaultChecked: false}, " Add ")
+				), 
+				React.createElement("div", {style: {position: "relative", width: "50%", margin: "0 auto", top: "10px"}}, 
+					selectFile
 				)
-			
 			
 		      ), 
 		      React.createElement("div", {className: "modal-footer"}, 
-				React.createElement(Button, {onClick: this.props.onRequestHide}, "Close"), 
-				React.createElement(Button, {onClick: this.handleCreateCard, bsStyle: "primary"}, "Create Card")
+				React.createElement(Button, {onClick: this.props.onHide}, " Close "), 
+				React.createElement(ModalTrigger, {modal: React.createElement(EditorSchemaMenu, {onSaveSchema: this.props.onSaveSchema, currentState: this.props.currentState, propsSelectFile: this.props, selected: document.getElementsByTagName('select')[0]})}, 
+					React.createElement(Button, {onClick: function(ev) {
+						schemaa = "OK";
+						var open = document.getElementById('rOpen').checked;
+						selected = [];
+						var sel1 = document.getElementsByTagName('select')[0];
+						for (var i=0, iLen=sel1.options.length; i<iLen; i++) if (sel1.options[i].selected) selected.push(sel1.options[i].value);
+						if(selected.length == 0) {alert("Please, select files to open\n"); return;}
+						onLoadData(selected, open);
+						//self.props.onHide();
+						}, bsStyle: "primary"}, " OK ")
+			  	)
 		      )
 		    )
 		)
@@ -25587,6 +25627,158 @@
 
 /***/ },
 /* 207 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict'
+
+	var React = __webpack_require__(1);
+	var _ = __webpack_require__(2);
+
+	var BS = __webpack_require__(117);
+	var Button = BS.Button;
+	var Glyphicon = BS.Glyphicon;
+	var ModalTrigger = BS.ModalTrigger;
+	var TabbedArea = BS.TabbedArea;
+	var Button = BS.Button;
+	var Modal = BS.Modal;
+	var Input = BS.Input;
+
+	var Context = __webpack_require__(57);
+	var context = new Context(window.location.hostname, 'ws', 19000);
+	var rpc = context.rpc;
+
+	var fileOptions = [];
+	rpc.call("TableSrv.show_data", [])
+			.then(function(filelist){
+				fileOptions = filelist;
+			});
+		
+	var selected = [];
+
+	module.exports = React.createClass({displayName: "exports",
+
+		  	getDefaultProps: function() {
+				return {
+			    tables: {},
+			    label: "Select files to open:",
+			    bsStyle: "default"
+				};
+		  	},
+
+		    render: function() {
+			var self = this;
+
+			var loadFileMenuData = this.loadFileMenuData; 
+			var filesMenuServer = this.filesMenuServer;
+			var onSaveSchema = this.props.onSaveSchema;		
+			var propsSelectFile = this.props.propsSelectFile;
+			var datasetName = this.props.datasetName;
+			if(!datasetName || datasetName == null) datasetName = "Unknown";
+			var selected = this.props.selected;
+			var currentState = this.props.currentState;
+			var tableName = Object.keys(this.props.currentState.tables)[0];
+			var new_cols = this.props.currentState.tables[tableName].new_cols;
+			var currentSchema = this.props.currentState.tables[tableName].schema;
+			var currentAttributes = currentSchema.attributes;
+			var currentOrder = currentSchema.order;
+			console.log("CURRENTSTATE:", this.props.currentState);
+
+			var attributeTypes = ["Categorical", "Quantitative", "Ordinal"];
+			var changedSchema = currentSchema;
+			var originalNames = {};
+			var emptyNames = 0;
+
+			var cardEditSchema = function(attr, j, color){
+					return (
+							//React.createElement("div", {className: "form-group", style:{margin: "0 auto"}},
+							React.createElement("div", {className: "row", style: {"marginBottom": "5px"}}, 
+									React.createElement("div", {className: "form-group"}, 
+										React.createElement("div", {class: "btn btn-xs btn-default card-anchor card-move"}, 
+											React.createElement("span", {className: "icon glyphicon glyphicon-move"})
+										)
+		            				), 
+									React.createElement("div", {className: "form-group", style: {"marginLeft":"10px"}}, 
+										React.createElement("input", {className: "form-control", type: "text", id: attr, defaultValue: attr, style: {"width":"100%", "background":color}, onChange: function (ev){
+													var oldName = ev.target.id; var newName = ev.target.value;
+													if(newName in changedSchema.attributes){ alert("You can't rename two attributes with the same name"); return; }
+													if(newName == "") emptyNames++; if(oldName == "") emptyNames--; 
+													changedSchema.attributes[oldName].name = newName; changedSchema.attributes[newName] = changedSchema.attributes[oldName];
+													delete changedSchema.attributes[oldName];													
+													ev.target.id = newName;
+													for(var key in changedSchema.order) if(changedSchema.order[key] === oldName) changedSchema.order[key] = newName;						
+													for(var key in changedSchema.quantitative_attrs) if(changedSchema.quantitative_attrs[key] === oldName) changedSchema.quantitative_attrs[key] = newName;
+													originalNames[attr] = newName;
+												}
+											})
+									), 
+									React.createElement("div", {className: "form-group", style: {"marginLeft":"10px"}}, 
+										React.createElement("select", {className: "form-control", id: "sel"+i, style: {"width":"100%", "background": "#428bca", "color": "#fff"}, onChange: function (ev){
+															changedSchema.attributes[originalNames[attr]].attribute_type = ev.target.value;
+														}
+													}, 
+														attributeTypes.map(function(attrType, j){
+																if(currentAttributes[attr].attribute_type.toLowerCase() == attrType.toLowerCase()) return ( React.createElement("option", {selected: "selected", value: attrType}, " ", attrType, " ") );
+																else return ( React.createElement("option", {value: attrType}, " ", attrType, " ") );
+															}
+														)
+										)
+									)
+							)
+					)
+			}
+			selected = [];
+			var sel1 = document.getElementsByTagName('select')[0];
+			if(sel1 != null && sel1 != 'undefined'){
+				for (var i=0, iLen=sel1.options.length; i<iLen; i++) if (sel1.options[i].selected) selected.push(sel1.options[i].value);
+				if(selected.length == 1) datasetName = selected[0].split('.')[0];
+				else datasetName = "combined";
+			}
+
+			return (
+
+					React.createElement(Modal, React.__spread({},  this.props, {bsSize: "large", title: "Edit schema", animation: true}), 
+						React.createElement("div", {class: "modal-body"}, 
+							React.createElement("div", {style: {"position": "relative", "width": "40%", "margin": "0 auto", "marginBottom": "20px"}}, 
+								React.createElement("label", null, " Dataset "), 
+								React.createElement(Input, {type: "text", id: "tableName", defaultValue: datasetName, onChange: function (ev){
+										datasetName = ev.target.value;
+									}
+								})
+							), 
+							React.createElement("div", {className: "container"}, 
+							React.createElement("form", {className: "form-inline", role: "form", style: {"position": "relative", "width": "50%", "margin": "0 auto", "marginBottom": "10px"}}, 
+								currentOrder.map(function(attr, i){
+										if(attr != "id_index"){
+											originalNames[attr] = attr;
+											if(new_cols.indexOf(attr) != -1) return( cardEditSchema(attr, i, "#FFF") )
+											return(	cardEditSchema(attr, i, "#DDD") )
+										}
+									}
+								)
+							)
+							)
+						), 	
+						React.createElement("div", {className: "modal-footer"}, 
+							React.createElement(Button, {onClick: this.props.onHide}, " Cancel "), 
+							React.createElement(Button, {onClick: function(ev) {
+								console.log("OK", changedSchema);
+								// Save the edited schema
+								onSaveSchema(changedSchema, originalNames, datasetName);
+								//currentState.tables[tableName].dataset_name = datasetName;
+
+								if(emptyNames > 0){ alert("Empty attribute names not allowed"); return; }
+								if (propsSelectFile) propsSelectFile.onHide();							
+								self.props.onHide();
+							}, bsStyle: "primary"}, " OK ")
+		      			)
+					)
+			)
+		  }
+		});
+
+
+/***/ },
+/* 208 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var d3 = __webpack_require__(198);
@@ -25835,12 +26027,12 @@
 
 
 /***/ },
-/* 208 */
+/* 209 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var d3 = __webpack_require__(198);
 	var _ = __webpack_require__(2);
-	__webpack_require__(209);
+	__webpack_require__(210);
 
 
 	module.exports = {
@@ -26007,7 +26199,7 @@
 
 
 /***/ },
-/* 209 */
+/* 210 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var d3 = __webpack_require__(198);
@@ -26315,10 +26507,10 @@
 
 
 /***/ },
-/* 210 */
+/* 211 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var c3 = __webpack_require__(211);
+	var c3 = __webpack_require__(212);
 	var _ = __webpack_require__(2);
 
 	module.exports = {
@@ -26363,7 +26555,7 @@
 
 
 /***/ },
-/* 211 */
+/* 212 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;(function (window) {

@@ -314,7 +314,7 @@ module.exports = React.createClass({
 
 				var files = ev.target.files;
 				
-				//var accept_data_ext = ['csv','xls','xlsx','xlsm','xlt'];
+				var accept_data_ext = ['csv','xls','xlsx','xlsm','xlt'];
 				
 				// Check file (or files) selected
 				for (var i = 0; i < files.length; i++) {
@@ -390,9 +390,15 @@ module.exports = React.createClass({
 							self.setState({"tables": self.state.tables});
 						})
 				});*/
-			console.log("SELLLL:", sel);
 
-			var cols_old = Object.keys(self.state.tables[tableName].schema.attributes);			
+			var cols_old = Object.keys(self.state.tables[tableName].schema.attributes);
+
+			function getQuantitativeAttrs(schema) {
+	    		var attrs = _.pick(schema.attributes, function(value, key) {
+					return value.attribute_type === "QUANTITATIVE" && ! value.shape.length;
+				    });
+	    		return _(attrs).keys().sort().value();
+			}	
 					
 			sel.map(function(selected, i){
 
@@ -404,9 +410,13 @@ module.exports = React.createClass({
 								return;
 							}
 							var sch = resp[1];
+							var new_cols = Object.keys(resp[2]);
+
 							self.state.tables[tableName].schema = sch;
 							self.state.tables[tableName].schema.attributes = _.mapValues(self.state.tables[tableName].schema.attributes, function(v,k){v.name = k; return v;});
 							self.state.tables[tableName].schema.quantitative_attrs = getQuantitativeAttrs(sch);
+
+							self.state.tables[tableName].new_cols = new_cols;
 					});
 					op = false; //Only open the first file (and add the others)
 		});
@@ -459,6 +469,7 @@ module.exports = React.createClass({
 		}
 			//alert("Opened file '"+selected+"'");
 		//});
+		return "OK"
 	},
 
 	saveSchema: function(newSchema, originalNames, datasetName) {
@@ -501,10 +512,15 @@ module.exports = React.createClass({
 	    var state = analysis.state;
 
 	    var tables = _.pluck(state.tables, "name");
+		var tableName = Object.keys(analysis.state.tables)[0];
+		var table = analysis.state.tables[tableName];		
 
 	    rpc.call("DynSelectSrv.clear", [])
 		.then(function(){return rpc.call("GrammarSrv.build", [grammar, tables]); })
 		.done(function(){ self.setState(state); });
+
+		console.log("FIND:");
+		rpc.call("TableSrv.set_data", [tableName, table]).then(function(resp){ console.log("FIND:", resp); });
 	};
     },
 
@@ -717,8 +733,11 @@ module.exports = React.createClass({
 	    );
 	});
 
-	var columns = _.mapValues(self.state.tables, function(table){
+	/*var columns = _.mapValues(self.state.tables, function(table){
 	    return _.map(table.schema.attributes, function(v, key){return {name: v.name, attribute_type: v.attribute_type};});
+	});*/
+	var columns = _.mapValues(self.state.tables, function(table){
+	    return _.map(table.schema.order, function(v, key){ return {name: v, attribute_type: table.schema.attributes[v].attribute_type};});
 	});
 	var quantitativeColumns = _.mapValues(columns, function(tableColumns){
 	    return _.filter(tableColumns, {attribute_type: "QUANTITATIVE"});

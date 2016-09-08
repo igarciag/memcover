@@ -43,6 +43,7 @@ class TableService(INamed):
         dispatcher.add_method(self.show_data)        
         dispatcher.add_method(self.load_data_server)
         dispatcher.add_method(self.save_schema)
+        dispatcher.add_method(self.set_data)
         # TableView properties
         dispatcher.add_method(partial(self._proxy_property, 'name'), 'name')
         dispatcher.add_method(partial(self._proxy_property, 'index'), 'index')
@@ -134,7 +135,7 @@ class TableService(INamed):
         _backend = MongoTable(table_name, table._schema, prefix='')
         _backend.data(df)
 
-        return table._schema
+        return table._schema, table._schema._schema['attributes']
 
     def concat_data(self, str_data, table_name, new_cols=None): # Concat new data to current dataset
         index_col = 'id_index'
@@ -161,14 +162,15 @@ class TableService(INamed):
             df.drop(labels=[''], axis=1, inplace = True)
         df.insert(0, index_col, range(max_id_index+1, max_id_index+df.shape[0]+1))
 
+        concat_schema = {}
+
         # Add columns of the new data (Union schemas)
         if new_cols is not None:
             if index_col in new_cols: new_cols.remove(index_col)
-            concat_schema = {}
             for attr in new_cols:
                 attr_utf = attr#.encode('utf-8')
                 concat_schema[attr_utf] = dict(AttributeSchema.infer_from_data(df[attr_utf])._schema)
-                
+
             #table._schema._schema['attributes'].update(collections.OrderedDict(concat_schema))
             for add_attr in concat_schema.keys():
                 table.add_column(add_attr, concat_schema[add_attr]['attribute_type'])
@@ -191,7 +193,7 @@ class TableService(INamed):
 
         table.insert(list_all_insert)
 
-        return table._schema
+        return table._schema, concat_schema
 
     def save_schema(self, table_name, schema, changes=None, datasetName=None): # Save a edited schema
         data_dir = "/app/data/import"
@@ -208,10 +210,9 @@ class TableService(INamed):
             table.rename_columns(changes)
         table._schema = TableSchema(schema['attributes'], schema['index'], schema['order'])
 
-
         from os import listdir, mkdir
-        from pprint import pprint
         from os.path import isdir
+        from pprint import pprint        
 
         with open(data_dir+"/"+datasetName+"_schema.json", "w") as text_file:
             pprint(table._schema, text_file)
@@ -272,12 +273,15 @@ class TableService(INamed):
             table = self._tables[table_name]
             cols_old = table._schema._schema['attributes'].keys()
             cols_new = str_data.split('\n')[0].split(',')
-            cols_add = [val for val in cols_new if not val in [val2 for val2 in cols_old]]
+            cols_add = [val for val in cols_new if not self.strip_accents(val) in [self.strip_accents(val2) for val2 in cols_old]]
             
         if str_data == "": return "ERROR", "Cannot read file '"+file_name+"/"+data_dir+"'"
 
-       	if openAdd == True: return "OK", self.load_data(str_data, table_name)
-       	return "OK", self.concat_data(str_data, table_name, cols_add)
+       	if openAdd == True:
+            resp = self.load_data(str_data, table_name)
+        else:
+            resp = self.concat_data(str_data, table_name, cols_add)
+       	return "OK", resp[0], resp[1]
 
     def process_data(self, str_data): # Process data to remove extra rows (intermediate headers, means...)
         #print str_data
@@ -296,3 +300,32 @@ class TableService(INamed):
         result = '\n'.join(result)
 
         return result
+
+    def strip_accents(self, s):
+        import unicodedata
+        try: return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+        except: return ''.join(c for c in unicodedata.normalize('NFD', s.decode('utf-8')) if unicodedata.category(c) != 'Mn')
+
+    def set_data(self, table_name, table_dict):
+        table = self._tables[table_name]
+
+        data = table_dict["data"]
+        schema = table_dict["schema"]
+
+        df = pd.DataFrame(data)
+        df.fillna("NaN", inplace=True)        
+
+        table.data(df)
+
+        _backend = MongoTable(table_name, table._schema, prefix='')
+        _backend.data(df)
+
+        table._schema = TableSchema(schema['attributes'], schema['index'], schema['order'])
+
+        from pprint import pprint
+        pprint(table.find_one())
+        print "==================================================="
+        print "==================================================="
+        print "==================================================="
+        return "OK"
+        

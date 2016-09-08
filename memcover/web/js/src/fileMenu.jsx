@@ -9,6 +9,7 @@ var Glyphicon = BS.Glyphicon;
 var ModalTrigger = BS.ModalTrigger;
 
 var SelectFileMenu = require('./selectFileMenu');
+var EditorSchemaMenu = require('./editorSchemaMenu');
 
 module.exports = React.createClass({
 
@@ -34,19 +35,25 @@ module.exports = React.createClass({
 	var header = this.props.header;
 	var currentState = this.props.currentState;
 	var tableName = Object.keys(this.props.currentState.tables)[0];
+	
 	return (
 
-            <BS.DropdownButton className={this.props.className} 
+			<BS.DropdownButton className={this.props.className} 
 		    style={this.props.style} 
-		    bsStyle={this.props.bsStyle} 
+		    bsStyle={this.props.bsStyle}
 		    title={this.props.label}>
 
-	      <BS.MenuItem onSelect={importFileMenuData}> Import </BS.MenuItem>
+		  <BS.MenuItem onSelect={importFileMenuData}> Import </BS.MenuItem>
 	      <input style={{"display":"none"}} type="file" multiple="multiple" accept=".csv, .xlsx, .xls" ref="importFileData" onChange={onImportData}/>
 	      
-	      <ModalTrigger modal={SelectFileMenu}>
-
-		  	<BS.MenuItem> Open </BS.MenuItem>		  
+	      <ModalTrigger modal={<SelectFileMenu onLoadData={this.props.onLoadData} onSaveSchema={this.props.onSaveSchema} currentState={this.props.currentState}/>}>
+			<BS.MenuItem> Open </BS.MenuItem>		  
+		  </ModalTrigger>
+		  
+		  <BS.MenuItem> Save data </BS.MenuItem>		  
+		  
+		  <ModalTrigger modal={<EditorSchemaMenu datasetName={this.props.currentState.tables[tableName].dataset_name} onSaveSchema={this.props.onSaveSchema} currentState={this.props.currentState}/>}>
+			<BS.MenuItem> Edit schema </BS.MenuItem>		  
 		  </ModalTrigger>
 	      {
 		  _.values(this.props.tables).map(function(table, i) {
