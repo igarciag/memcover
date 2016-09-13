@@ -218,7 +218,7 @@ class AttributeSchema(object):
         '''
         self._schema = OrderedDict()
 
-        self._schema['attribute_type'] = getattr(AttributeTypes, attribute_type)
+        self._schema['attribute_type'] = getattr(AttributeTypes, attribute_type.upper())
 
         self._schema['spatial'] = kwargs.get('spatial', False)              # Vs Abstract
         self._schema['key'] = kwargs.get('key', False)                      # Vs Value

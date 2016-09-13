@@ -419,7 +419,7 @@ class RangeCondition(Condition):
         if max is not None:
             if not relative:
                 self._range['max'] = float(max)
-)            else:
+            else:
                 self._range['max'] = float(self._to_absolute(__builtin__.min(max, 1)))
 
         self._cache_clear()

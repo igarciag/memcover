@@ -161,6 +161,7 @@ module.exports = {
         }
 
         attributes.forEach(function(d) {
+			console.log("D:", d);
             var name = d.name;
             if (d.attribute_type === 'QUANTITATIVE') {
                 y[name] = d3.scale.linear()

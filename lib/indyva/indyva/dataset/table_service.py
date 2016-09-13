@@ -18,6 +18,11 @@ from .schemas import AttributeSchema
 if sys.version_info[0] < 3: from StringIO import StringIO
 else: from io import StringIO
 
+global data_dir
+global index_col
+data_dir = "/app/data/import"
+index_col = 'id_index'
+
 
 class TableService(INamed):
     '''
@@ -37,12 +42,11 @@ class TableService(INamed):
         dispatcher.add_method(self.new_table)
         dispatcher.add_method(self.expose_table)
         dispatcher.add_method(self.del_table)
-        dispatcher.add_method(self.load_data)
-        dispatcher.add_method(self.concat_data)
         dispatcher.add_method(self.import_data)        
         dispatcher.add_method(self.show_data)        
         dispatcher.add_method(self.load_data_server)
         dispatcher.add_method(self.save_schema)
+        dispatcher.add_method(self.save_data)
         dispatcher.add_method(self.set_data)
         # TableView properties
         dispatcher.add_method(partial(self._proxy_property, 'name'), 'name')
@@ -105,14 +109,10 @@ class TableService(INamed):
         else:
             return partial(self._proxy, method)
 
-    def load_data(self, str_data, table_name, infer = True): # Load new data to dataset (removing old data)
-        index_col = 'id_index'
+    def load_data(self, str_data, table_name, schema=None): # Load new data to dataset (removing old data)
+        global index_col
 
         # Clean CSV (extra columns with comma ',')
-        #try:
-        #    lines = [line.rstrip(',') for line in str_data.encode('utf-8').split('\n')]
-        #    str_data = '\n'.join(lines)
-        #except: pass
         str_data = self.process_data(str_data)
 
         # Receive the data as string
@@ -128,8 +128,11 @@ class TableService(INamed):
 
         table = self._tables[table_name]
 
-        if (infer == True): table._schema = None
-         
+        table._schema = None
+        if not schema is None:
+            print "Schema loaded with file_schema.json"
+            table._schema = TableSchema(schema['attributes'], schema['index'], schema['order'])         
+        
         table.data(df)
 
         _backend = MongoTable(table_name, table._schema, prefix='')
@@ -137,12 +140,10 @@ class TableService(INamed):
 
         return table._schema, table._schema._schema['attributes']
 
-    def concat_data(self, str_data, table_name, new_cols=None): # Concat new data to current dataset
-        index_col = 'id_index'
+    def concat_data(self, str_data, table_name, schema=None, new_cols=None): # Concat new data to current dataset
+        global index_col
 
         # Clean CSV (extra columns with comma ',')
-        #lines = [line.rstrip(',') for line in str_data.encode('utf-8').split('\n')]
-        #str_data = '\n'.join(lines)
         str_data = self.process_data(str_data)
 
         # Receive the data as string
@@ -171,7 +172,6 @@ class TableService(INamed):
                 attr_utf = attr#.encode('utf-8')
                 concat_schema[attr_utf] = dict(AttributeSchema.infer_from_data(df[attr_utf])._schema)
 
-            #table._schema._schema['attributes'].update(collections.OrderedDict(concat_schema))
             for add_attr in concat_schema.keys():
                 table.add_column(add_attr, concat_schema[add_attr]['attribute_type'])
 
@@ -195,65 +195,9 @@ class TableService(INamed):
 
         return table._schema, concat_schema
 
-    def save_schema(self, table_name, schema, changes=None, datasetName=None): # Save a edited schema
-        data_dir = "/app/data/import"
-
-        if isinstance(schema, basestring): schema = json.loads(schema, object_pairs_hook=collections.OrderedDict)
-        else: schema = collections.OrderedDict(schema)
-
-        #if not table_name in self._tables.keys(): self._tables[table_name] = self._tables.pop(self._tables.keys()[0])
-        table = self._tables[table_name]  
-
-        if not changes is None:
-            for name in changes.keys():
-                if name == changes[name]: del changes[name]
-            table.rename_columns(changes)
-        table._schema = TableSchema(schema['attributes'], schema['index'], schema['order'])
-
-        from os import listdir, mkdir
-        from os.path import isdir
-        from pprint import pprint        
-
-        with open(data_dir+"/"+datasetName+"_schema.json", "w") as text_file:
-            pprint(table._schema, text_file)
-
-        return "Schema saved"
-
-    def import_data(self, str_data, table_name, file_name): # Import file to server-side
-        data_dir = "/app/data/import"
-
-        file_name = file_name.encode('utf-8')
-
-        from os import listdir, mkdir
-        from os.path import isdir
-
-        if not isdir(data_dir): mkdir(data_dir)
-
-        #print "______________________________"
-        #print listdir("/app/data")
-        #print "______________________________"
-
-        if file_name in listdir(data_dir):
-            return "ERROR: There is already a file called '"+file_name+"'\nPlease, change the filename"
-
-        with open(data_dir+"/"+file_name, "w") as text_file:
-            text_file.write(str_data.encode('utf-8'))
-
-        return "OK"
-
-    def show_data(self): # Return all filenames of data directory
-        data_dir = "/app/data/import"
-
-        from os import listdir, mkdir
-        from os.path import isdir
-
-        if not isdir(data_dir): mkdir(data_dir)
-
-       	return [f for f in listdir(data_dir) if f.endswith(".csv") or f.endswith(".xls") or f.endswith(".xlsx")]
-
-    def load_data_server(self, file_name, table_name, openAdd = False, cols_old = None): # Load a file (on server) by name
-        data_dir = "/app/data/import"
-        index_col = 'id_index'
+    def load_data_server(self, file_name, table_name, openAdd=False, cols_old=None, associatedJson=False): # Load a file (on server) by name
+        global data_dir
+        global index_col
 
         absolute_path = data_dir+"/"+file_name
 
@@ -277,14 +221,83 @@ class TableService(INamed):
             
         if str_data == "": return "ERROR", "Cannot read file '"+file_name+"/"+data_dir+"'"
 
-       	if openAdd == True:
-            resp = self.load_data(str_data, table_name)
-        else:
-            resp = self.concat_data(str_data, table_name, cols_add)
+        schema = None
+        if (associatedJson == True): # Open the _schema.json and load the schema
+            with open(''.join(absolute_path.split('.')[:-1])+"_schema.json", "r") as text_file:
+                schema = json.load(text_file)
+
+       	if openAdd == True: resp = self.load_data(str_data, table_name, schema)
+        else: resp = self.concat_data(str_data, table_name, schema, cols_add)
        	return "OK", resp[0], resp[1]
 
+    def save_schema(self, table_name, schema, changes=None, datasetName=None, saveSchemaFile=False): # Save a edited schema
+        global data_dir
+
+        if isinstance(schema, basestring): schema = json.loads(schema, object_pairs_hook=collections.OrderedDict)
+        else: schema = collections.OrderedDict(schema)
+
+        table = self._tables[table_name]  
+
+        if not changes is None:
+            for name in changes.keys():
+                if name == changes[name]: del changes[name]
+            table.rename_columns(changes)
+        table._schema = TableSchema(schema['attributes'], schema['index'], schema['order'])
+
+        from os import listdir, mkdir
+        from os.path import isdir
+        from pprint import pprint
+
+        if saveSchemaFile == True:
+            result_schema = {'index': schema['index'], 'order': schema['order'], 'attributes': schema['attributes']}
+
+            with open(data_dir+"/"+datasetName+"_schema.json", "w") as text_file:
+                #pprint(table._schema, text_file)
+                json.dump(result_schema, text_file)
+
+        return "OK"
+
+    def save_data(self, table_name, datasetName, data, schema): # Save a edited schema
+        global data_dir
+
+        df = pd.DataFrame(data)
+        df.fillna("NaN", inplace=True)
+        df.to_csv(data_dir+"/"+datasetName+".csv", sep=',', encoding='utf-8', cols=schema["order"], index=False)
+
+        resp = self.save_schema(table_name, schema, datasetName=datasetName, saveSchemaFile=True)
+
+        if resp == "OK": return "OK"
+        return "ERROR: The schema could not be saved"
+
+    def import_data(self, str_data, table_name, file_name): # Import file to server-side
+        global data_dir
+
+        file_name = file_name.encode('utf-8')
+
+        from os import listdir, mkdir
+        from os.path import isdir
+
+        if not isdir(data_dir): mkdir(data_dir)
+
+        if file_name in listdir(data_dir):
+            return "ERROR: There is already a file called '"+file_name+"'\nPlease, change the filename"
+
+        with open(data_dir+"/"+file_name, "w") as text_file:
+            text_file.write(str_data.encode('utf-8'))
+
+        return "OK"
+
+    def show_data(self): # Return all filenames of data directory
+        global data_dir
+
+        from os import listdir, mkdir
+        from os.path import isdir
+
+        if not isdir(data_dir): mkdir(data_dir)
+
+       	return [f for f in listdir(data_dir)]
+
     def process_data(self, str_data): # Process data to remove extra rows (intermediate headers, means...)
-        #print str_data
         try: str_data = str_data.encode('utf-8')
         except: pass
         lines = [line.rstrip(',') for line in str_data.split('\n')]
@@ -322,10 +335,10 @@ class TableService(INamed):
 
         table._schema = TableSchema(schema['attributes'], schema['index'], schema['order'])
 
-        from pprint import pprint
-        pprint(table.find_one())
-        print "==================================================="
-        print "==================================================="
-        print "==================================================="
+        #from pprint import pprint
+        #pprint(table.find_one())
+        #print "==================================================="
+        #print "==================================================="
+        #print "==================================================="
         return "OK"
         

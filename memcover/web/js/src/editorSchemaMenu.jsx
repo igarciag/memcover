@@ -13,6 +13,8 @@ var Button = BS.Button;
 var Modal = BS.Modal;
 var Input = BS.Input;
 
+var ReactGridLayout = require('react-grid-layout');
+
 var Context = require('context');
 var context = new Context(window.location.hostname, 'ws', 19000);
 var rpc = context.rpc;
@@ -34,6 +36,14 @@ module.exports = React.createClass({displayName: "exports",
 		    bsStyle: "default"
 			};
 	  	},
+	
+		orderFromLayout(layout) {
+        	return _.chain(layout)
+        	.map( (l) => { return {y: l.y, attr: l.i} })
+        	.sortBy('y')
+        	.pluck('attr')
+        	.value();
+    	},
 
 	    render: function() {
 		var self = this;
@@ -51,6 +61,9 @@ module.exports = React.createClass({displayName: "exports",
 		var currentSchema = this.props.currentState.tables[tableName].schema;
 		var currentAttributes = currentSchema.attributes;
 		var currentOrder = currentSchema.order;
+		var index = currentOrder.indexOf("id_index");
+		if(index != -1) currentOrder.splice(index, 1); // Delete "id_index" attribute from schema order
+
 		console.log("CURRENTSTATE:", this.props.currentState);
 
 		var attributeTypes = ["Categorical", "Quantitative", "Ordinal"];
@@ -61,65 +74,61 @@ module.exports = React.createClass({displayName: "exports",
 		var cardEditSchema = function(attr, j, color){
 				return (
 						//React.createElement("div", {className: "form-group", style:{margin: "0 auto"}},
-						<div className="row" style={{"marginBottom": "5px"}}>
-								<div className="form-group">
-									<div class="btn btn-xs btn-default card-anchor card-move">
-										<span className="icon glyphicon glyphicon-move"/>
+						<div key={attr}>
+								<form className="form-inline" role="form">
+									<div className="form-group">
+										<div class="btn btn-xs btn-default card-anchor card-move">
+											<span className="icon glyphicon glyphicon-move"/>
+										</div>
 									</div>
-	            				</div>
-								<div className="form-group" style={{"marginLeft":"10px"}}>
-									<input className="form-control" type="text" id={attr} defaultValue={attr} style={{"width":"100%", "background":color}} onChange={function (ev){
-												var oldName = ev.target.id; var newName = ev.target.value;
-												if(newName in changedSchema.attributes){ alert("You can't rename two attributes with the same name"); return; }
-												if(newName == "") emptyNames++; if(oldName == "") emptyNames--; 
-												changedSchema.attributes[oldName].name = newName; changedSchema.attributes[newName] = changedSchema.attributes[oldName];
-												delete changedSchema.attributes[oldName];													
-												ev.target.id = newName;
-												for(var key in changedSchema.order) if(changedSchema.order[key] === oldName) changedSchema.order[key] = newName;						
-												for(var key in changedSchema.quantitative_attrs) if(changedSchema.quantitative_attrs[key] === oldName) changedSchema.quantitative_attrs[key] = newName;
-												originalNames[attr] = newName;
-											}
-										}/>
-								</div>
-								<div className="form-group" style={{"marginLeft":"10px"}}>
-									<select className="form-control" id={"sel"+i} style={{"width":"100%", "background": "#428bca", "color": "#fff"}} onChange={function (ev){
-														changedSchema.attributes[originalNames[attr]].attribute_type = ev.target.value;
-													}
-												}>
-													{attributeTypes.map(function(attrType, j){
-															if(currentAttributes[attr].attribute_type.toLowerCase() == attrType.toLowerCase()) return ( <option selected="selected" value={attrType}> {attrType} </option> );
-															else return ( <option value={attrType}> {attrType} </option> );
+									<div className="form-group" style={{"marginLeft":"10px", "width":"auto"}}>
+										<input className="form-control" type="text" id={attr} defaultValue={attr} onChange={function (ev){
+													var oldName = ev.target.id; var newName = ev.target.value;
+													if(newName in changedSchema.attributes){ alert("You can't rename two attributes with the same name"); return; }
+													if(newName == "") emptyNames++; if(oldName == "") emptyNames--; 
+													changedSchema.attributes[oldName].name = newName; changedSchema.attributes[newName] = changedSchema.attributes[oldName];
+													delete changedSchema.attributes[oldName];													
+													ev.target.id = newName;
+													for(var key in changedSchema.order) if(changedSchema.order[key] === oldName) changedSchema.order[key] = newName;						
+													for(var key in changedSchema.quantitative_attrs) if(changedSchema.quantitative_attrs[key] === oldName) changedSchema.quantitative_attrs[key] = newName;
+													originalNames[attr] = newName;
+												}
+											}/>
+									</div>
+									<div className="form-group" style={{"marginLeft":"10px"}}>
+										<select className="form-control" id={"sel"+i} style={{"width":"auto", "background": "#428bca", "color": "#fff"}} onChange={function (ev){
+															changedSchema.attributes[originalNames[attr]].attribute_type = ev.target.value;
 														}
-													)}
-									</select>
-								</div>
+													}>
+														{attributeTypes.map(function(attrType, j){
+																if(currentAttributes[attr].attribute_type.toLowerCase() == attrType.toLowerCase()) return ( <option selected="selected" value={attrType}> {attrType} </option> );
+																else return ( <option value={attrType}> {attrType} </option> );
+															}
+														)}
+										</select>
+									</div>
+								</form>
 						</div>
 				)
 		}
 
-		if(currentOrder.length > 1) {
+		var layout = [];
+		
+		if(currentOrder.length > 0) {
 			var formCards = function(){
 					return (
-						<div className="container">						
-							<div style={{"position": "relative", "width": "40%", "margin": "0 auto", "marginBottom": "20px"}}>
-								<label> Dataset </label>
-								<Input type="text" id="tableName" defaultValue={datasetName} onChange={function (ev){
-										datasetName = ev.target.value;
+						<div style={{"position": "relative", "width": "60%", "margin": "0 auto", "marginBottom": "20px"}}>
+							<ReactGridLayout className="layout" layout={layout} cols={1} rowHeight={50} isResizable={false}
+							onLayoutChange={(newLayout) => {
+	                        	let newOrder = self.orderFromLayout(newLayout);
+    	                		if (! _.isEqual(currentOrder, newOrder)) changedSchema.order = newOrder; // Avoids infinite recursion
+                    		}}>
+								{_.map(currentOrder, function(attr, i){
+										//if(new_cols.indexOf(attr) != -1) return( cardEditSchema(attr, i, "#FFF") )
+										return(	cardEditSchema(attr, i, "#FFF") );
 									}
-								}/>
-							</div>
-							<div className="container">
-								<form className="form-inline" role="form" style={{"position": "relative", "width": "50%", "margin": "0 auto", "marginBottom": "10px"}}>
-									{currentOrder.map(function(attr, i){
-											if(attr != "id_index"){
-												originalNames[attr] = attr;
-												if(new_cols.indexOf(attr) != -1) return( cardEditSchema(attr, i, "#FFF") )
-												return(	cardEditSchema(attr, i, "#DDD") )
-											}
-										}
-									)}
-								</form>
-							</div>
+								)}
+							</ReactGridLayout>
 						</div>
 					)
 			}
@@ -151,9 +160,15 @@ module.exports = React.createClass({displayName: "exports",
 						<Button onClick={this.props.onHide}> Cancel </Button>
 						<Button onClick={function(ev) {
 							console.log("OK", changedSchema);
+							
+							// Update order with new names (from original names)
+							for(var h=0; h<changedSchema.order.length; h++){
+								var nameAttr = originalNames[changedSchema.order[h]];
+								if(nameAttr != null) changedSchema.order[h] = nameAttr;
+							}
+
 							// Save the edited schema
 							onSaveSchema(changedSchema, originalNames, datasetName);
-							//currentState.tables[tableName].dataset_name = datasetName;
 
 							if(emptyNames > 0){ alert("Empty attribute names not allowed"); return; }
 							if (propsSelectFile) propsSelectFile.onHide();							

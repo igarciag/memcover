@@ -54,7 +54,7 @@ module.exports = React.createClass({
 				</ModalTrigger>
 				
 				<ModalTrigger modal={<SaveDataMenu onSaveData={this.props.onSaveData} currentState={this.props.currentState}/>}>
-					<BS.MenuItem> Save data </BS.MenuItem>		  
+					<BS.MenuItem> Save dataset </BS.MenuItem>		  
 				</ModalTrigger>
 
 				<ModalTrigger modal={<EditorSchemaMenu datasetName={this.props.currentState.tables[tableName].dataset_name} onSaveSchema={this.props.onSaveSchema} currentState={this.props.currentState}/>}>
