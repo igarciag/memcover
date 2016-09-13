@@ -209,10 +209,12 @@ var Store = {
 	    .catch(function(e){console.error(e);});
     },
 
-    exportTable: function(table, fileName) {
+    exportTable: function(table, fileName, excelCsv) {
 	var rpc = Context.instance().rpc;
 
-	rpc.call("export_dselect", [table.selection, table.name, fileName])
+	if(!fileName || fileName == null) fileName = "joined";
+
+	rpc.call("export_dselect", [table.selection, table.name, fileName, excelCsv])
 	    .then(function(d){
 		var uri = "http://" + window.location.host + window.location.pathname + d;
 		window.open(uri, fileName);
@@ -353,16 +355,14 @@ module.exports = React.createClass({
 	    },
 
 			
-		loadData: function(sel, op) {
+		loadData: function(sel, op, fileOptionsAll) {
 
-			console.log("OP:", op)
 			var self = this;
 			var when =  __webpack_require__(/*! when */ 5);
 			var rpc = Context.instance().rpc;
 
 			var tableName = Object.keys(self.state.tables)[0];
 			var selected = "";
-			
 
 			//rpc.call("TableSrv.show_data", [])
 			//.then(function(filelist){
@@ -398,12 +398,13 @@ module.exports = React.createClass({
 					return value.attribute_type === "QUANTITATIVE" && ! value.shape.length;
 				    });
 	    		return _(attrs).keys().sort().value();
-			}	
-					
+			}
+			var associatedJson = false;
 			sel.map(function(selected, i){
+				if(fileOptionsAll.indexOf(selected.split('.')[0]+"_schema.json") != -1) associatedJson = true; //Hay _schema.json asociado
 
 				// Load new data and schema if necessary
-				rpc.call("TableSrv.load_data_server", [selected, tableName, op, cols_old]) // This function returns the infer schema
+				rpc.call("TableSrv.load_data_server", [selected, tableName, op, cols_old, associatedJson]) // This function returns the infer schema
 					.then(function(resp){
 							if( resp[0] !== "OK" ){
 								alert("UPLOAD DATA CANCELED\n\n"+resp[1]+"\n");
@@ -483,69 +484,109 @@ module.exports = React.createClass({
 			
 		self.state.tables[tableName].schema = newSchema;
 
-		rpc.call("TableSrv.save_schema", [tableName, newSchema, originalNames, datasetName]) // This function returns the infer schema
-				.then(function(resp){
-					console.log(resp);
-				});
+		rpc.call("TableSrv.save_schema", [tableName, newSchema, originalNames, datasetName]); // This function returns the infer schema
 
 		Store.getData(tableName).then(function(rows){
 			self.state.tables[tableName].data = rows;
 			self.setState({"tables": self.state.tables});
 		});
-
-		console.log("NEW_SCHEMA:",self.state.tables[tableName].schema);
 	},
 
+	saveData: function(dataset_name, data, schema) {
+		var self = this;
+		var when =  __webpack_require__(/*! when */ 5);
+		var rpc = Context.instance().rpc;
+
+		var tableName = Object.keys(self.state.tables)[0];
+
+		rpc.call("TableSrv.show_data", [])
+			.then(function(filelist){
+				for(var i=0; i<filelist.length; i++) filelist[i] = filelist[i].split('.')[0]
+				if(filelist.indexOf(dataset_name) != -1){ 
+					var resp = confirm("There's a file named '"+dataset_name+"'\nDo you want to overwrite the data file?\n");
+					if(!resp) return;
+				}
+				
+				rpc.call("TableSrv.save_data", [tableName, dataset_name, data, schema])
+					.then(function(resp){
+							if(resp == "OK") alert("Dataset '"+dataset_name+"' saved\n");
+							else alert("Error saving dataset '"+dataset_name+"'\n"+resp+"\n");
+						}
+					);
+			});
+	},
+
+	exportDataLocal: function(state) {
+		var when =  require("when");
+		var rpc = Context.instance().rpc;
+
+		var stateToSave = _.clone(state);
+		stateToSave.subscriptions = {};
+
+		rpc.call("GrammarSrv.new_root", ['root'])
+			.then(function(){ return when.map(_.pluck(stateToSave.tables, "selection"), function(dselect) {
+			return rpc.call("DynSelectSrv.get_conditions", [dselect])
+				.then(function(conditions){ rpc.call("GrammarSrv.add_condition", ['root', conditions]);})
+				.then(function(){ rpc.call("GrammarSrv.add_dynamic", ['root', dselect]);});
+			});})
+			.then(function(){ return rpc.call("GrammarSrv.grammar", ['root']);})
+			.then(function(grammar){
+			var analysis = {state: stateToSave, grammar: grammar};
+			var blob = new Blob([JSON.stringify(analysis)], {type: "text/plain;charset=utf-8"});
+			var date = new Date();
+			saveAs(blob, "analysis_"+ date.toJSON() +".json");
+			})
+			.done(function() { rpc.call("GrammarSrv.del_root", ['root']);});
+    },
+
     loadAnalysis: function(ev) {
-	var self = this;
-	var when =  require("when");
-	var rpc = Context.instance().rpc;
+		var self = this;
+		var when =  require("when");
+		var rpc = Context.instance().rpc;
 
-	var files = ev.target.files;
-	var reader = new FileReader();
-	reader.readAsText(files[0]);
-	ev.target.value = ""; // So same file rise onChange
+		var files = ev.target.files;
+		var reader = new FileReader();
+		reader.readAsText(files[0]);
+		ev.target.value = ""; // So same file rise onChange
 
-	reader.onload = function() {
-	    var analysis = JSON.parse(this.result);
-	    var grammar = analysis.grammar;
-	    var state = analysis.state;
+		reader.onload = function() {
+			var analysis = JSON.parse(this.result);
+			var grammar = analysis.grammar;
+			var state = analysis.state;
 
-	    var tables = _.pluck(state.tables, "name");
-		var tableName = Object.keys(analysis.state.tables)[0];
-		var table = analysis.state.tables[tableName];		
+			var tables = _.pluck(state.tables, "name");
+			var tableName = Object.keys(analysis.state.tables)[0];
+			var table = analysis.state.tables[tableName];		
 
-	    rpc.call("DynSelectSrv.clear", [])
-		.then(function(){return rpc.call("GrammarSrv.build", [grammar, tables]); })
-		.done(function(){ self.setState(state); });
+			rpc.call("DynSelectSrv.clear", [])
+			.then(function(){return rpc.call("GrammarSrv.build", [grammar, tables]); })
+			.done(function(){ self.setState(state); });
 
-		console.log("FIND:");
-		rpc.call("TableSrv.set_data", [tableName, table]).then(function(resp){ console.log("FIND:", resp); });
-	};
+			rpc.call("TableSrv.set_data", [tableName, table]);
+		};
     },
 
     saveAnalysis: function(state) {
-	var when =  require("when");
-	var rpc = Context.instance().rpc;
+		var when =  require("when");
+		var rpc = Context.instance().rpc;
 
-	var stateToSave = _.clone(state);
-	stateToSave.subscriptions = {};
+		var stateToSave = _.clone(state);
+		stateToSave.subscriptions = {};
 
-	rpc.call("GrammarSrv.new_root", ['root'])
-	    .then(function(){ return when.map(_.pluck(stateToSave.tables, "selection"), function(dselect) {
-		return rpc.call("DynSelectSrv.get_conditions", [dselect])
-		    .then(function(conditions){ rpc.call("GrammarSrv.add_condition", ['root', conditions]);})
-		    .then(function(){ rpc.call("GrammarSrv.add_dynamic", ['root', dselect]);});
-	    });})
-	    .then(function(){ return rpc.call("GrammarSrv.grammar", ['root']);})
-	    .then(function(grammar){
-		var analysis = {state: stateToSave, grammar: grammar};
-		var blob = new Blob([JSON.stringify(analysis)], {type: "text/plain;charset=utf-8"});
-		var date = new Date();
-		saveAs(blob, "analysis_"+ date.toJSON() +".json");
-	    })
-	    .done(function() { rpc.call("GrammarSrv.del_root", ['root']);});
-
+		rpc.call("GrammarSrv.new_root", ['root'])
+			.then(function(){ return when.map(_.pluck(stateToSave.tables, "selection"), function(dselect) {
+			return rpc.call("DynSelectSrv.get_conditions", [dselect])
+				.then(function(conditions){ rpc.call("GrammarSrv.add_condition", ['root', conditions]);})
+				.then(function(){ rpc.call("GrammarSrv.add_dynamic", ['root', dselect]);});
+			});})
+			.then(function(){ return rpc.call("GrammarSrv.grammar", ['root']);})
+			.then(function(grammar){
+			var analysis = {state: stateToSave, grammar: grammar};
+			var blob = new Blob([JSON.stringify(analysis)], {type: "text/plain;charset=utf-8"});
+			var date = new Date();
+			saveAs(blob, "analysis_"+ date.toJSON() +".json");
+			})
+			.done(function() { rpc.call("GrammarSrv.del_root", ['root']);});
     },
 
     addCard: function(card) {
@@ -779,9 +820,9 @@ module.exports = React.createClass({
                 <AnalysisMenu className="navbar-btn pull-right"
 			style={ {"margin-right":10} }
 			tables={this.state.tables}
-			onExport={function(table){Store.exportTable(table, table.name);}}
+			onExport={function(table){Store.exportTable(table, table.name, true);}}
 			onOpen={self.loadAnalysis}
-	                onSave={self.saveAnalysis.bind(self, self.state)}
+	        onSave={self.saveAnalysis.bind(self, self.state)}
 			>
 
 		</AnalysisMenu>
@@ -789,10 +830,13 @@ module.exports = React.createClass({
 				<FileMenu className="navbar-btn pull-right"
 			style={ {"margin-right":10} }
 			tables={this.state.tables}
-			onExport={function(table){Store.exportTable(table, table.name);}}
+			onExportCsv={function(table){Store.exportTable(table, table.dataset_name, false);}}
+			onExportExcel={function(table){Store.exportTable(table, table.dataset_name, true);}}
 			onLoadData={self.loadData}
 			onImportData={self.importData}
 			onSaveSchema={self.saveSchema}
+			onSaveData={self.saveData}
+			onExportData={self.exportDataLocal.bind(self, self.state)}
 			currentState={self.state}
 			>
 

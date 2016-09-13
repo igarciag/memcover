@@ -14,11 +14,9 @@ from __init__ import ROOT
 ASSETSPATH = os.path.join(ROOT, 'web', 'assets')
 
 
-def export_dselect(dselect_name, dataset_name, name):
+def export_dselect(dselect_name, dataset_name, fileName, excelCsv=False):
     dselect = Showcase.instance().get(dselect_name)
     dataset = Showcase.instance().get(dataset_name)
-
-    download_name = name.replace(" ", "_") + '.xlsx'
 
     project = dselect.projection
 
@@ -31,8 +29,16 @@ def export_dselect(dselect_name, dataset_name, name):
         data = dataset.find(dselect.query, project).get_data('rows')
     else:
         data = dataset.get_data('rows')
+
     df = pd.DataFrame(data)
-    df.to_excel(os.path.join(ASSETSPATH, 'exports', download_name))
+    df.fillna("NaN", inplace=True)
+
+    if excelCsv == True:
+        download_name = fileName.replace(" ", "_") + '.xlsx'
+        df.to_excel(os.path.join(ASSETSPATH, 'exports', download_name), cols=dataset.schema.order, index=False)
+    else:
+        download_name = fileName.replace(" ", "_") + '.csv'
+        df.to_csv(os.path.join(ASSETSPATH, 'exports', download_name), sep=',', encoding='utf-8', cols=dataset.schema.order, index=False)
 
     return os.path.join('assets', 'exports', download_name)
 

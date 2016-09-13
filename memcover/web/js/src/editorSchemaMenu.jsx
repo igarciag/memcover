@@ -3,6 +3,7 @@
 var React = require('react');
 var _ = require('lodash');
 
+
 var BS = require('react-bootstrap');
 var Button = BS.Button;
 var Glyphicon = BS.Glyphicon;
@@ -95,6 +96,43 @@ module.exports = React.createClass({displayName: "exports",
 						</div>
 				)
 		}
+
+		if(currentOrder.length > 1) {
+			var formCards = function(){
+					return (
+						<div className="container">						
+							<div style={{"position": "relative", "width": "40%", "margin": "0 auto", "marginBottom": "20px"}}>
+								<label> Dataset </label>
+								<Input type="text" id="tableName" defaultValue={datasetName} onChange={function (ev){
+										datasetName = ev.target.value;
+									}
+								}/>
+							</div>
+							<div className="container">
+								<form className="form-inline" role="form" style={{"position": "relative", "width": "50%", "margin": "0 auto", "marginBottom": "10px"}}>
+									{currentOrder.map(function(attr, i){
+											if(attr != "id_index"){
+												originalNames[attr] = attr;
+												if(new_cols.indexOf(attr) != -1) return( cardEditSchema(attr, i, "#FFF") )
+												return(	cardEditSchema(attr, i, "#DDD") )
+											}
+										}
+									)}
+								</form>
+							</div>
+						</div>
+					)
+			}
+		} else {
+			var formCards = function(){
+				return (
+						<div class="container">
+							<h4>Please, select any file to open</h4>
+						</div>
+				)
+			}
+		}
+
 		selected = [];
 		var sel1 = document.getElementsByTagName('select')[0];
 		if(sel1 != null && sel1 != 'undefined'){
@@ -107,25 +145,7 @@ module.exports = React.createClass({displayName: "exports",
 
 				<Modal {...this.props} bsSize="large" title="Edit schema" animation={true}>
 					<div class="modal-body"> 
-						<div style={{"position": "relative", "width": "40%", "margin": "0 auto", "marginBottom": "20px"}}>
-							<label> Dataset </label>
-							<Input type="text" id="tableName" defaultValue={datasetName} onChange={function (ev){
-									datasetName = ev.target.value;
-								}
-							}/>
-						</div>
-						<div className="container">
-						<form className="form-inline" role="form" style={{"position": "relative", "width": "50%", "margin": "0 auto", "marginBottom": "10px"}}>
-							{currentOrder.map(function(attr, i){
-									if(attr != "id_index"){
-										originalNames[attr] = attr;
-										if(new_cols.indexOf(attr) != -1) return( cardEditSchema(attr, i, "#FFF") )
-										return(	cardEditSchema(attr, i, "#DDD") )
-									}
-								}
-							)}
-						</form>
-						</div>
+						{formCards()}
 					</div>	
 					<div className='modal-footer'>
 						<Button onClick={this.props.onHide}> Cancel </Button>

@@ -19,10 +19,15 @@ var context = new Context(window.location.hostname, 'ws', 19000);
 var rpc = context.rpc;
 
 var fileOptions = [];
+var fileOptionsAll = [];
+var accept_data_ext = ['csv', 'xls', 'xlsx']
 rpc.call("TableSrv.show_data", [])
-		.then(function(filelist){
-			fileOptions = filelist;
-		});
+	.then(function(filelist){
+		fileOptionsAll = filelist;
+		for(var i=0; i<fileOptionsAll.length; i++){
+			if(accept_data_ext.indexOf(fileOptionsAll[i].split('.').pop()) != -1) fileOptions.push(fileOptionsAll[i]);
+		}
+	});
 	
 var selected = [];
 
@@ -49,13 +54,17 @@ module.exports = React.createClass({
 	var onLoadData = this.props.onLoadData;
 	var onFilesServer = this.props.onFilesServer;
 	var currentState = this.props.currentState;
-	var schemaa = "";
 
 	rpc.call("TableSrv.show_data", [])
 		.then(function(filelist){
-			fileOptions = filelist;
-			console.log("SHOW DATAAA", fileOptions);
+			console.log("DENTRO");
+			fileOptionsAll = filelist;
+			fileOptions = [];
+			for(var i=0; i<fileOptionsAll.length; i++){
+				if(accept_data_ext.indexOf(fileOptionsAll[i].split('.').pop()) != -1) fileOptions.push(fileOptionsAll[i]);
+			}
 	});
+	console.log("PASA");
 
 	var self = this;
 	var sizeSelect = 20; //Max size of the select menu
@@ -91,13 +100,12 @@ module.exports = React.createClass({
 			<Button onClick={this.props.onHide}> Close </Button>
 			<ModalTrigger modal={<EditorSchemaMenu onSaveSchema={this.props.onSaveSchema} currentState={this.props.currentState} propsSelectFile={this.props} selected={document.getElementsByTagName('select')[0]}/>}>
 				<Button onClick={function(ev) {
-					schemaa = "OK";
 					var open = document.getElementById('rOpen').checked;
 					selected = [];
 					var sel1 = document.getElementsByTagName('select')[0];
 					for (var i=0, iLen=sel1.options.length; i<iLen; i++) if (sel1.options[i].selected) selected.push(sel1.options[i].value);
-					if(selected.length == 0) {alert("Please, select files to open\n"); return;}
-					onLoadData(selected, open);
+					//if(selected.length == 0) {alert("Please, select files to open\n"); return;}
+					onLoadData(selected, open, fileOptionsAll);
 					//self.props.onHide();
 					}} bsStyle="primary"> OK </Button>
 		  	</ModalTrigger>

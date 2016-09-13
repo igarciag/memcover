@@ -2714,9 +2714,9 @@
 	var AnalysisMenu = __webpack_require__(204);
 	var FileMenu = __webpack_require__(205);
 
-	var PCPChart = reactify(__webpack_require__(208), "PCPChart");
-	var BoxChart = reactify(__webpack_require__(209), "BoxChart");
-	var ScatterChart = reactify(__webpack_require__(211), "ScatterChart");
+	var PCPChart = reactify(__webpack_require__(209), "PCPChart");
+	var BoxChart = reactify(__webpack_require__(210), "BoxChart");
+	var ScatterChart = reactify(__webpack_require__(212), "ScatterChart");
 	// var ParSetChart = reactify(require('./parsetChart'), "ParSetChart");
 
 	/**
@@ -2903,10 +2903,12 @@
 		    .catch(function(e){console.error(e);});
 	    },
 
-	    exportTable: function(table, fileName) {
+	    exportTable: function(table, fileName, excelCsv) {
 		var rpc = Context.instance().rpc;
 
-		rpc.call("export_dselect", [table.selection, table.name, fileName])
+		if(!fileName || fileName == null) fileName = "joined";
+
+		rpc.call("export_dselect", [table.selection, table.name, fileName, excelCsv])
 		    .then(function(d){
 			var uri = "http://" + window.location.host + window.location.pathname + d;
 			window.open(uri, fileName);
@@ -3047,16 +3049,14 @@
 		    },
 
 				
-			loadData: function(sel, op) {
+			loadData: function(sel, op, fileOptionsAll) {
 
-				console.log("OP:", op)
 				var self = this;
 				var when =  __webpack_require__(/*! when */ 5);
 				var rpc = Context.instance().rpc;
 
 				var tableName = Object.keys(self.state.tables)[0];
 				var selected = "";
-				
 
 				//rpc.call("TableSrv.show_data", [])
 				//.then(function(filelist){
@@ -3092,12 +3092,13 @@
 						return value.attribute_type === "QUANTITATIVE" && ! value.shape.length;
 					    });
 		    		return _(attrs).keys().sort().value();
-				}	
-						
+				}
+				var associatedJson = false;
 				sel.map(function(selected, i){
+					if(fileOptionsAll.indexOf(selected.split('.')[0]+"_schema.json") != -1) associatedJson = true; //Hay _schema.json asociado
 
 					// Load new data and schema if necessary
-					rpc.call("TableSrv.load_data_server", [selected, tableName, op, cols_old]) // This function returns the infer schema
+					rpc.call("TableSrv.load_data_server", [selected, tableName, op, cols_old, associatedJson]) // This function returns the infer schema
 						.then(function(resp){
 								if( resp[0] !== "OK" ){
 									alert("UPLOAD DATA CANCELED\n\n"+resp[1]+"\n");
@@ -3177,69 +3178,109 @@
 				
 			self.state.tables[tableName].schema = newSchema;
 
-			rpc.call("TableSrv.save_schema", [tableName, newSchema, originalNames, datasetName]) // This function returns the infer schema
-					.then(function(resp){
-						console.log(resp);
-					});
+			rpc.call("TableSrv.save_schema", [tableName, newSchema, originalNames, datasetName]); // This function returns the infer schema
 
 			Store.getData(tableName).then(function(rows){
 				self.state.tables[tableName].data = rows;
 				self.setState({"tables": self.state.tables});
 			});
-
-			console.log("NEW_SCHEMA:",self.state.tables[tableName].schema);
 		},
 
+		saveData: function(dataset_name, data, schema) {
+			var self = this;
+			var when =  __webpack_require__(/*! when */ 5);
+			var rpc = Context.instance().rpc;
+
+			var tableName = Object.keys(self.state.tables)[0];
+
+			rpc.call("TableSrv.show_data", [])
+				.then(function(filelist){
+					for(var i=0; i<filelist.length; i++) filelist[i] = filelist[i].split('.')[0]
+					if(filelist.indexOf(dataset_name) != -1){ 
+						var resp = confirm("There's a file named '"+dataset_name+"'\nDo you want to overwrite the data file?\n");
+						if(!resp) return;
+					}
+					
+					rpc.call("TableSrv.save_data", [tableName, dataset_name, data, schema])
+						.then(function(resp){
+								if(resp == "OK") alert("Dataset '"+dataset_name+"' saved\n");
+								else alert("Error saving dataset '"+dataset_name+"'\n"+resp+"\n");
+							}
+						);
+				});
+		},
+
+		exportDataLocal: function(state) {
+			var when =  __webpack_require__(3);
+			var rpc = Context.instance().rpc;
+
+			var stateToSave = _.clone(state);
+			stateToSave.subscriptions = {};
+
+			rpc.call("GrammarSrv.new_root", ['root'])
+				.then(function(){ return when.map(_.pluck(stateToSave.tables, "selection"), function(dselect) {
+				return rpc.call("DynSelectSrv.get_conditions", [dselect])
+					.then(function(conditions){ rpc.call("GrammarSrv.add_condition", ['root', conditions]);})
+					.then(function(){ rpc.call("GrammarSrv.add_dynamic", ['root', dselect]);});
+				});})
+				.then(function(){ return rpc.call("GrammarSrv.grammar", ['root']);})
+				.then(function(grammar){
+				var analysis = {state: stateToSave, grammar: grammar};
+				var blob = new Blob([JSON.stringify(analysis)], {type: "text/plain;charset=utf-8"});
+				var date = new Date();
+				saveAs(blob, "analysis_"+ date.toJSON() +".json");
+				})
+				.done(function() { rpc.call("GrammarSrv.del_root", ['root']);});
+	    },
+
 	    loadAnalysis: function(ev) {
-		var self = this;
-		var when =  __webpack_require__(3);
-		var rpc = Context.instance().rpc;
+			var self = this;
+			var when =  __webpack_require__(3);
+			var rpc = Context.instance().rpc;
 
-		var files = ev.target.files;
-		var reader = new FileReader();
-		reader.readAsText(files[0]);
-		ev.target.value = ""; // So same file rise onChange
+			var files = ev.target.files;
+			var reader = new FileReader();
+			reader.readAsText(files[0]);
+			ev.target.value = ""; // So same file rise onChange
 
-		reader.onload = function() {
-		    var analysis = JSON.parse(this.result);
-		    var grammar = analysis.grammar;
-		    var state = analysis.state;
+			reader.onload = function() {
+				var analysis = JSON.parse(this.result);
+				var grammar = analysis.grammar;
+				var state = analysis.state;
 
-		    var tables = _.pluck(state.tables, "name");
-			var tableName = Object.keys(analysis.state.tables)[0];
-			var table = analysis.state.tables[tableName];		
+				var tables = _.pluck(state.tables, "name");
+				var tableName = Object.keys(analysis.state.tables)[0];
+				var table = analysis.state.tables[tableName];		
 
-		    rpc.call("DynSelectSrv.clear", [])
-			.then(function(){return rpc.call("GrammarSrv.build", [grammar, tables]); })
-			.done(function(){ self.setState(state); });
+				rpc.call("DynSelectSrv.clear", [])
+				.then(function(){return rpc.call("GrammarSrv.build", [grammar, tables]); })
+				.done(function(){ self.setState(state); });
 
-			console.log("FIND:");
-			rpc.call("TableSrv.set_data", [tableName, table]).then(function(resp){ console.log("FIND:", resp); });
-		};
+				rpc.call("TableSrv.set_data", [tableName, table]);
+			};
 	    },
 
 	    saveAnalysis: function(state) {
-		var when =  __webpack_require__(3);
-		var rpc = Context.instance().rpc;
+			var when =  __webpack_require__(3);
+			var rpc = Context.instance().rpc;
 
-		var stateToSave = _.clone(state);
-		stateToSave.subscriptions = {};
+			var stateToSave = _.clone(state);
+			stateToSave.subscriptions = {};
 
-		rpc.call("GrammarSrv.new_root", ['root'])
-		    .then(function(){ return when.map(_.pluck(stateToSave.tables, "selection"), function(dselect) {
-			return rpc.call("DynSelectSrv.get_conditions", [dselect])
-			    .then(function(conditions){ rpc.call("GrammarSrv.add_condition", ['root', conditions]);})
-			    .then(function(){ rpc.call("GrammarSrv.add_dynamic", ['root', dselect]);});
-		    });})
-		    .then(function(){ return rpc.call("GrammarSrv.grammar", ['root']);})
-		    .then(function(grammar){
-			var analysis = {state: stateToSave, grammar: grammar};
-			var blob = new Blob([JSON.stringify(analysis)], {type: "text/plain;charset=utf-8"});
-			var date = new Date();
-			saveAs(blob, "analysis_"+ date.toJSON() +".json");
-		    })
-		    .done(function() { rpc.call("GrammarSrv.del_root", ['root']);});
-
+			rpc.call("GrammarSrv.new_root", ['root'])
+				.then(function(){ return when.map(_.pluck(stateToSave.tables, "selection"), function(dselect) {
+				return rpc.call("DynSelectSrv.get_conditions", [dselect])
+					.then(function(conditions){ rpc.call("GrammarSrv.add_condition", ['root', conditions]);})
+					.then(function(){ rpc.call("GrammarSrv.add_dynamic", ['root', dselect]);});
+				});})
+				.then(function(){ return rpc.call("GrammarSrv.grammar", ['root']);})
+				.then(function(grammar){
+				var analysis = {state: stateToSave, grammar: grammar};
+				var blob = new Blob([JSON.stringify(analysis)], {type: "text/plain;charset=utf-8"});
+				var date = new Date();
+				saveAs(blob, "analysis_"+ date.toJSON() +".json");
+				})
+				.done(function() { rpc.call("GrammarSrv.del_root", ['root']);});
 	    },
 
 	    addCard: function(card) {
@@ -3473,9 +3514,9 @@
 	                React.createElement(AnalysisMenu, {className: "navbar-btn pull-right", 
 				style:  {"margin-right":10}, 
 				tables: this.state.tables, 
-				onExport: function(table){Store.exportTable(table, table.name);}, 
+				onExport: function(table){Store.exportTable(table, table.name, true);}, 
 				onOpen: self.loadAnalysis, 
-		                onSave: self.saveAnalysis.bind(self, self.state)
+		        onSave: self.saveAnalysis.bind(self, self.state)
 				}
 
 			), 
@@ -3483,10 +3524,13 @@
 					React.createElement(FileMenu, {className: "navbar-btn pull-right", 
 				style:  {"margin-right":10}, 
 				tables: this.state.tables, 
-				onExport: function(table){Store.exportTable(table, table.name);}, 
+				onExportCsv: function(table){Store.exportTable(table, table.dataset_name, false);}, 
+				onExportExcel: function(table){Store.exportTable(table, table.dataset_name, true);}, 
 				onLoadData: self.loadData, 
 				onImportData: self.importData, 
 				onSaveSchema: self.saveSchema, 
+				onSaveData: self.saveData, 
+				onExportData: self.exportDataLocal.bind(self, self.state), 
 				currentState: self.state
 				}
 
@@ -25451,6 +25495,7 @@
 	var ModalTrigger = BS.ModalTrigger;
 
 	var SelectFileMenu = __webpack_require__(206);
+	var SaveDataMenu = __webpack_require__(208);
 	var EditorSchemaMenu = __webpack_require__(207);
 
 	module.exports = React.createClass({displayName: "exports",
@@ -25473,7 +25518,9 @@
 		var onLoadData = this.props.onLoadData;
 		var onImportData = this.props.onImportData;
 		var onSaveSchema = this.props.onSaveSchema;
-		var onExport = this.props.onExport;
+		var onSaveData = this.props.onSaveData;
+		var onExportCsv = this.props.onExportCsv;
+		var onExportExcel = this.props.onExportExcel;
 		var header = this.props.header;
 		var currentState = this.props.currentState;
 		var tableName = Object.keys(this.props.currentState.tables)[0];
@@ -25481,28 +25528,43 @@
 		return (
 
 				React.createElement(BS.DropdownButton, {className: this.props.className, 
-			    style: this.props.style, 
-			    bsStyle: this.props.bsStyle, 
-			    title: this.props.label}, 
+					style: this.props.style, 
+					bsStyle: this.props.bsStyle, 
+					title: this.props.label}, 
 
-			React.createElement(BS.MenuItem, {onSelect: importFileMenuData}, " Import "), 
-		      React.createElement("input", {style: {"display":"none"}, type: "file", multiple: "multiple", accept: ".csv, .xlsx, .xls", ref: "importFileData", onChange: onImportData}), 
-		      
-		      React.createElement(ModalTrigger, {modal: React.createElement(SelectFileMenu, {onLoadData: this.props.onLoadData, onSaveSchema: this.props.onSaveSchema, currentState: this.props.currentState})}, 
-				React.createElement(BS.MenuItem, null, " Open ")		  
-			  ), 
-			  React.createElement(ModalTrigger, {modal: React.createElement(EditorSchemaMenu, {datasetName: this.props.currentState.tables[tableName].dataset_name, onSaveSchema: this.props.onSaveSchema, currentState: this.props.currentState})}, 
-				React.createElement(BS.MenuItem, null, " Edit schema ")		  
-			  ), 
-		      
-			  _.values(this.props.tables).map(function(table, i) {
-			      return(
-	                          React.createElement(BS.MenuItem, {eventKey: i, onSelect:  onExport.bind(this, table) }, 
-				  "Export dataset"
-				  )
-			      )
-			  })
-		       
+					React.createElement(BS.MenuItem, {onSelect: importFileMenuData}, " Import "), 
+					React.createElement("input", {style: {"display":"none"}, type: "file", multiple: "multiple", accept: ".csv, .xlsx, .xls", ref: "importFileData", onChange: onImportData}), 
+					
+					React.createElement(ModalTrigger, {modal: React.createElement(SelectFileMenu, {onLoadData: this.props.onLoadData, onSaveSchema: this.props.onSaveSchema, currentState: this.props.currentState})}, 
+						React.createElement(BS.MenuItem, null, " Open ")		  
+					), 
+					
+					React.createElement(ModalTrigger, {modal: React.createElement(SaveDataMenu, {onSaveData: this.props.onSaveData, currentState: this.props.currentState})}, 
+						React.createElement(BS.MenuItem, null, " Save data ")		  
+					), 
+
+					React.createElement(ModalTrigger, {modal: React.createElement(EditorSchemaMenu, {datasetName: this.props.currentState.tables[tableName].dataset_name, onSaveSchema: this.props.onSaveSchema, currentState: this.props.currentState})}, 
+						React.createElement(BS.MenuItem, null, " Edit schema ")		  
+					), 
+
+					
+					_.values(this.props.tables).map(function(table, i) {
+						return(
+									React.createElement(BS.MenuItem, {eventKey: i, onSelect:  onExportCsv.bind(this, table) }, 
+						"Export to CSV"
+						)
+						)
+					}), 
+					
+					
+					_.values(this.props.tables).map(function(table, i) {
+						return(
+									React.createElement(BS.MenuItem, {eventKey: i, onSelect:  onExportExcel.bind(this, table) }, 
+						"Export to Excel"
+						)
+						)
+					})
+					
 	            )
 		)
 	    }
@@ -25535,10 +25597,15 @@
 	var rpc = context.rpc;
 
 	var fileOptions = [];
+	var fileOptionsAll = [];
+	var accept_data_ext = ['csv', 'xls', 'xlsx']
 	rpc.call("TableSrv.show_data", [])
-			.then(function(filelist){
-				fileOptions = filelist;
-			});
+		.then(function(filelist){
+			fileOptionsAll = filelist;
+			for(var i=0; i<fileOptionsAll.length; i++){
+				if(accept_data_ext.indexOf(fileOptionsAll[i].split('.').pop()) != -1) fileOptions.push(fileOptionsAll[i]);
+			}
+		});
 		
 	var selected = [];
 
@@ -25565,13 +25632,17 @@
 		var onLoadData = this.props.onLoadData;
 		var onFilesServer = this.props.onFilesServer;
 		var currentState = this.props.currentState;
-		var schemaa = "";
 
 		rpc.call("TableSrv.show_data", [])
 			.then(function(filelist){
-				fileOptions = filelist;
-				console.log("SHOW DATAAA", fileOptions);
+				console.log("DENTRO");
+				fileOptionsAll = filelist;
+				fileOptions = [];
+				for(var i=0; i<fileOptionsAll.length; i++){
+					if(accept_data_ext.indexOf(fileOptionsAll[i].split('.').pop()) != -1) fileOptions.push(fileOptionsAll[i]);
+				}
 		});
+		console.log("PASA");
 
 		var self = this;
 		var sizeSelect = 20; //Max size of the select menu
@@ -25607,13 +25678,12 @@
 				React.createElement(Button, {onClick: this.props.onHide}, " Close "), 
 				React.createElement(ModalTrigger, {modal: React.createElement(EditorSchemaMenu, {onSaveSchema: this.props.onSaveSchema, currentState: this.props.currentState, propsSelectFile: this.props, selected: document.getElementsByTagName('select')[0]})}, 
 					React.createElement(Button, {onClick: function(ev) {
-						schemaa = "OK";
 						var open = document.getElementById('rOpen').checked;
 						selected = [];
 						var sel1 = document.getElementsByTagName('select')[0];
 						for (var i=0, iLen=sel1.options.length; i<iLen; i++) if (sel1.options[i].selected) selected.push(sel1.options[i].value);
-						if(selected.length == 0) {alert("Please, select files to open\n"); return;}
-						onLoadData(selected, open);
+						//if(selected.length == 0) {alert("Please, select files to open\n"); return;}
+						onLoadData(selected, open, fileOptionsAll);
 						//self.props.onHide();
 						}, bsStyle: "primary"}, " OK ")
 			  	)
@@ -25634,6 +25704,7 @@
 	var React = __webpack_require__(1);
 	var _ = __webpack_require__(2);
 
+
 	var BS = __webpack_require__(117);
 	var Button = BS.Button;
 	var Glyphicon = BS.Glyphicon;
@@ -25642,6 +25713,8 @@
 	var Button = BS.Button;
 	var Modal = BS.Modal;
 	var Input = BS.Input;
+
+	var ReactGridLayout = __webpack_require__(1);
 
 	var Context = __webpack_require__(57);
 	var context = new Context(window.location.hostname, 'ws', 19000);
@@ -25726,6 +25799,41 @@
 							)
 					)
 			}
+
+			if(currentOrder.length > 1) {
+				var formCards = function(){
+						return (
+							React.createElement("div", {className: "container"}, 						
+								React.createElement("div", {style: {"position": "relative", "width": "40%", "margin": "0 auto", "marginBottom": "20px"}}, 
+									React.createElement("label", null, " Dataset "), 
+									React.createElement(Input, {type: "text", id: "tableName", defaultValue: datasetName, onChange: function (ev){
+											datasetName = ev.target.value;
+										}
+									})
+								), 
+								React.createElement(ReactGridLayout, null, 
+										currentOrder.map(function(attr, i){
+												if(attr != "id_index"){
+													originalNames[attr] = attr;
+													if(new_cols.indexOf(attr) != -1) return( cardEditSchema(attr, i, "#FFF") )
+													return(	cardEditSchema(attr, i, "#DDD") )
+												}
+											}
+										)
+									)
+							)
+						)
+				}
+			} else {
+				var formCards = function(){
+					return (
+							React.createElement("div", {class: "container"}, 
+								React.createElement("h4", null, "Please, select any file to open")
+							)
+					)
+				}
+			}
+
 			selected = [];
 			var sel1 = document.getElementsByTagName('select')[0];
 			if(sel1 != null && sel1 != 'undefined'){
@@ -25738,25 +25846,7 @@
 
 					React.createElement(Modal, React.__spread({},  this.props, {bsSize: "large", title: "Edit schema", animation: true}), 
 						React.createElement("div", {class: "modal-body"}, 
-							React.createElement("div", {style: {"position": "relative", "width": "40%", "margin": "0 auto", "marginBottom": "20px"}}, 
-								React.createElement("label", null, " Dataset "), 
-								React.createElement(Input, {type: "text", id: "tableName", defaultValue: datasetName, onChange: function (ev){
-										datasetName = ev.target.value;
-									}
-								})
-							), 
-							React.createElement("div", {className: "container"}, 
-							React.createElement("form", {className: "form-inline", role: "form", style: {"position": "relative", "width": "50%", "margin": "0 auto", "marginBottom": "10px"}}, 
-								currentOrder.map(function(attr, i){
-										if(attr != "id_index"){
-											originalNames[attr] = attr;
-											if(new_cols.indexOf(attr) != -1) return( cardEditSchema(attr, i, "#FFF") )
-											return(	cardEditSchema(attr, i, "#DDD") )
-										}
-									}
-								)
-							)
-							)
+							formCards()
 						), 	
 						React.createElement("div", {className: "modal-footer"}, 
 							React.createElement(Button, {onClick: this.props.onHide}, " Cancel "), 
@@ -25779,6 +25869,75 @@
 
 /***/ },
 /* 208 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict'
+
+	var React = __webpack_require__(1);
+	var _ = __webpack_require__(2);
+
+	var BS = __webpack_require__(117);
+	var Button = BS.Button;
+	var Glyphicon = BS.Glyphicon;
+	var ModalTrigger = BS.ModalTrigger;
+	var TabbedArea = BS.TabbedArea;
+	var Button = BS.Button;
+	var Modal = BS.Modal;
+	var Input = BS.Input;
+
+	var Context = __webpack_require__(57);
+	var context = new Context(window.location.hostname, 'ws', 19000);
+	var rpc = context.rpc;
+
+	module.exports = React.createClass({displayName: "exports",
+
+	    getDefaultProps: function() {
+		return {
+		    tables: {},
+		    label: "Save dataset",
+		    bsStyle: "default"
+		};
+	    },
+
+	    render: function() {
+		var self = this;
+		var onSaveData = this.props.onSaveData;		
+		var currentState = this.props.currentState;
+		var tableName = Object.keys(this.props.currentState.tables)[0];
+		var datasetName = (currentState.tables[tableName].dataset_name != null) ? currentState.tables[tableName].dataset_name : "";
+
+		return (
+
+	        React.createElement(Modal, React.__spread({},  this.props, {bsSize: "large", title: "Save dataset", animation: true}), 
+		      React.createElement("div", {class: "modal-body"}, 
+					React.createElement("div", {style: {"position": "relative", "width": "40%", "margin": "0 auto", "marginBottom": "20px"}}, 
+						React.createElement("label", null, " Dataset name "), 
+						React.createElement(Input, {type: "text", id: "tableName", defaultValue: datasetName, onChange: function (ev){
+								datasetName = ev.target.value;
+							}
+						})			
+					), 
+					React.createElement("div", {className: "modal-footer"}, 
+						React.createElement(Button, {onClick: this.props.onHide}, " Cancel "), 
+						React.createElement(Button, {onClick: function(ev) {
+							if(datasetName == null || datasetName == ""){ alert("Please, set a name to dataset"); return; }
+							
+							// Save the dataset
+							onSaveData(datasetName, currentState.tables[tableName].data, currentState.tables[tableName].schema);
+							//currentState.tables[tableName].dataset_name = datasetName;
+							self.props.onHide();
+						}, bsStyle: "primary"}, " OK ")
+		      		)
+		      	)
+		    )
+		)
+	    }
+
+	});
+
+
+/***/ },
+/* 209 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var d3 = __webpack_require__(198);
@@ -25944,6 +26103,7 @@
 	        }
 
 	        attributes.forEach(function(d) {
+				console.log("D:", d);
 	            var name = d.name;
 	            if (d.attribute_type === 'QUANTITATIVE') {
 	                y[name] = d3.scale.linear()
@@ -26027,12 +26187,12 @@
 
 
 /***/ },
-/* 209 */
+/* 210 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var d3 = __webpack_require__(198);
 	var _ = __webpack_require__(2);
-	__webpack_require__(210);
+	__webpack_require__(211);
 
 
 	module.exports = {
@@ -26199,7 +26359,7 @@
 
 
 /***/ },
-/* 210 */
+/* 211 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var d3 = __webpack_require__(198);
@@ -26507,10 +26667,10 @@
 
 
 /***/ },
-/* 211 */
+/* 212 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var c3 = __webpack_require__(212);
+	var c3 = __webpack_require__(213);
 	var _ = __webpack_require__(2);
 
 	module.exports = {
@@ -26555,7 +26715,7 @@
 
 
 /***/ },
-/* 212 */
+/* 213 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;(function (window) {
