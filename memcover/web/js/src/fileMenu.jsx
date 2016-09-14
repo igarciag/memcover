@@ -24,7 +24,9 @@ module.exports = React.createClass({
     },
 
     importFileMenuData: function(){
-	this.refs.importFileData.getDOMNode().click();
+		console.log("this.refs.importFileData.getDOMNode():", this.refs.importFileData.getDOMNode());
+		//this.refs..getDOMNode().click();
+		React.findDOMNode(this.refs.importFileData).click();
     },
 
     render: function() {

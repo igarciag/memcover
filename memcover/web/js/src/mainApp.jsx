@@ -309,7 +309,7 @@ module.exports = React.createClass({
 
     },
 
-				importData: function(ev) {
+	importData: function(ev) {
 				var self = this;
 				var when =  __webpack_require__(/*! when */ 5);
 				var rpc = Context.instance().rpc;
@@ -343,11 +343,14 @@ module.exports = React.createClass({
 								res = XLSX.utils.sheet_to_csv(ws);
 							}
 
-							rpc.call("TableSrv.import_data", [res, tableName, theFile.name])
-							.then(function(resp){ if(resp != "OK") alert(resp); });
-
-							//console.log("FILE '"+theFile.name+"':", res);
-							alert("Imported file '"+theFile.name+"'");
+							var ret = rpc.call("TableSrv.import_data", [res, tableName, theFile.name])
+							.then(function(resp){ if(resp != "OK" && resp != "") alert(resp); else cb(); });
+							
+							function cb() {
+								var resp = confirm("Imported file '"+theFile.name+"'\n\nDo you want to import the associated schema (.json)?\n");
+								if(!resp) return;
+								alert("Schema importado\n");
+							}
 					};
 					})(f);
 					reader.readAsBinaryString(f);
@@ -590,6 +593,7 @@ module.exports = React.createClass({
     },
 
     addCard: function(card) {
+	
 	var Y = Math.max(0, _.max(this.state.layout, 'y')) + 1;
 
 	var key = null;

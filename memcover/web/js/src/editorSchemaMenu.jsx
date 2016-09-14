@@ -74,14 +74,14 @@ module.exports = React.createClass({displayName: "exports",
 		var cardEditSchema = function(attr, j, color){
 				return (
 						//React.createElement("div", {className: "form-group", style:{margin: "0 auto"}},
-						<div key={attr}>
+						<div key={attr} style={{"width":"auto", "background": color, "border": "1px solid", "border-radius": "8px", "border-color": "#888"}}>
 								<form className="form-inline" role="form">
 									<div className="form-group">
-										<div class="btn btn-xs btn-default card-anchor card-move">
+										<div class="btn btn-xs btn-default card-anchor card-move" style={{"marginTop":"4px", }}>
 											<span className="icon glyphicon glyphicon-move"/>
 										</div>
 									</div>
-									<div className="form-group" style={{"marginLeft":"10px", "width":"auto"}}>
+									<div className="form-group" style={{"marginTop":"4px", "marginLeft":"10px", "width":"auto"}}>
 										<input className="form-control" type="text" id={attr} defaultValue={attr} onChange={function (ev){
 													var oldName = ev.target.id; var newName = ev.target.value;
 													if(newName in changedSchema.attributes){ alert("You can't rename two attributes with the same name"); return; }
@@ -95,7 +95,7 @@ module.exports = React.createClass({displayName: "exports",
 												}
 											}/>
 									</div>
-									<div className="form-group" style={{"marginLeft":"10px"}}>
+									<div className="form-group" style={{"marginTop":"4px", "marginLeft":"10px"}}>
 										<select className="form-control" id={"sel"+i} style={{"width":"auto", "background": "#428bca", "color": "#fff"}} onChange={function (ev){
 															changedSchema.attributes[originalNames[attr]].attribute_type = ev.target.value;
 														}
@@ -117,18 +117,24 @@ module.exports = React.createClass({displayName: "exports",
 		if(currentOrder.length > 0) {
 			var formCards = function(){
 					return (
-						<div style={{"position": "relative", "width": "60%", "margin": "0 auto", "marginBottom": "20px"}}>
-							<ReactGridLayout className="layout" layout={layout} cols={1} rowHeight={50} isResizable={false}
-							onLayoutChange={(newLayout) => {
-	                        	let newOrder = self.orderFromLayout(newLayout);
-    	                		if (! _.isEqual(currentOrder, newOrder)) changedSchema.order = newOrder; // Avoids infinite recursion
-                    		}}>
-								{_.map(currentOrder, function(attr, i){
-										//if(new_cols.indexOf(attr) != -1) return( cardEditSchema(attr, i, "#FFF") )
-										return(	cardEditSchema(attr, i, "#FFF") );
-									}
-								)}
-							</ReactGridLayout>
+						<div>
+							<div style={{"position": "relative", "width": "40%", "margin": "0 auto", "marginBottom": "20px"}}>
+								<label> Dataset name: </label>
+								<Input type="text" defaultValue={datasetName} onChange={function (ev){ datasetName = ev.target.value; }}/>
+							</div>
+							<div style={{"position": "relative", "width": "55%", "margin": "0 auto", "marginBottom": "20px"}}>
+								<ReactGridLayout className="layout" layout={layout} cols={1} rowHeight={55} isResizable={false}
+								onLayoutChange={(newLayout) => {
+									let newOrder = self.orderFromLayout(newLayout);
+									if (! _.isEqual(currentOrder, newOrder)) changedSchema.order = newOrder; // Avoids infinite recursion
+								}}>
+									{_.map(currentOrder, function(attr, i){
+											if(new_cols.indexOf(attr) != -1) return( cardEditSchema(attr, i, "#EEE") )
+											return(	cardEditSchema(attr, i, "#CCC") );
+										}
+									)}
+								</ReactGridLayout>
+							</div>
 						</div>
 					)
 			}

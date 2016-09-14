@@ -14,6 +14,7 @@ var TabPane = BS.TabPane;
 var Input = BS.Input;
 var Col = BS.Col;
 
+
 var CardCreationMenu = React.createClass({
     getInitialState: function() {
 	return {
@@ -54,7 +55,7 @@ var CardCreationMenu = React.createClass({
 	this.setState({activeTab: activeTab});
     },
 
-    render: function(){ 
+    render: function(){
 	var tabs = this.props.tabs
 
 	return (
@@ -289,6 +290,12 @@ var ScatterMenu = React.createClass({
     mixins: [React.addons.LinkedStateMixin],
     getInitialState: function() {
 	var table = this.props.table || this.props.options.tables[0];
+	
+	if(Object.keys(this.props.options.columns[table]).length <= 1){
+		alert("Please, open or import a data file\n");
+		return {};
+	}
+
 	return {
 	    table: table,
 	    xColumn: this.props.xColumn || this.props.options.columns[table][0].name,

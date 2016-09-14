@@ -3003,7 +3003,7 @@
 
 	    },
 
-					importData: function(ev) {
+		importData: function(ev) {
 					var self = this;
 					var when =  __webpack_require__(/*! when */ 5);
 					var rpc = Context.instance().rpc;
@@ -3037,11 +3037,14 @@
 									res = XLSX.utils.sheet_to_csv(ws);
 								}
 
-								rpc.call("TableSrv.import_data", [res, tableName, theFile.name])
-								.then(function(resp){ if(resp != "OK") alert(resp); });
-
-								//console.log("FILE '"+theFile.name+"':", res);
-								alert("Imported file '"+theFile.name+"'");
+								var ret = rpc.call("TableSrv.import_data", [res, tableName, theFile.name])
+								.then(function(resp){ if(resp != "OK" && resp != "") alert(resp); else cb(); });
+								
+								function cb() {
+									var resp = confirm("Imported file '"+theFile.name+"'\n\nDo you want to import the associated schema (.json)?\n");
+									if(!resp) return;
+									alert("Schema importado\n");
+								}
 						};
 						})(f);
 						reader.readAsBinaryString(f);
@@ -3284,6 +3287,7 @@
 	    },
 
 	    addCard: function(card) {
+		
 		var Y = Math.max(0, _.max(this.state.layout, 'y')) + 1;
 
 		var key = null;
@@ -24831,6 +24835,7 @@
 	var Input = BS.Input;
 	var Col = BS.Col;
 
+
 	var CardCreationMenu = React.createClass({displayName: "CardCreationMenu",
 	    getInitialState: function() {
 		return {
@@ -24871,7 +24876,7 @@
 		this.setState({activeTab: activeTab});
 	    },
 
-	    render: function(){ 
+	    render: function(){
 		var tabs = this.props.tabs
 
 		return (
@@ -25106,6 +25111,12 @@
 	    mixins: [React.addons.LinkedStateMixin],
 	    getInitialState: function() {
 		var table = this.props.table || this.props.options.tables[0];
+		
+		if(Object.keys(this.props.options.columns[table]).length <= 1){
+			alert("Please, open or import a data file\n");
+			return {};
+		}
+
 		return {
 		    table: table,
 		    xColumn: this.props.xColumn || this.props.options.columns[table][0].name,
@@ -25510,7 +25521,9 @@
 	    },
 
 	    importFileMenuData: function(){
-		this.refs.importFileData.getDOMNode().click();
+			console.log("this.refs.importFileData.getDOMNode():", this.refs.importFileData.getDOMNode());
+			//this.refs..getDOMNode().click();
+			React.findDOMNode(this.refs.importFileData).click();
 	    },
 
 	    render: function() {
@@ -25627,71 +25640,74 @@
 	    },
 
 	    render: function() {
-		var loadFileMenuData = this.loadFileMenuData; 
-		var filesMenuServer = this.filesMenuServer; 
-		var onLoadData = this.props.onLoadData;
-		var onFilesServer = this.props.onFilesServer;
-		var currentState = this.props.currentState;
+			var loadFileMenuData = this.loadFileMenuData; 
+			var filesMenuServer = this.filesMenuServer; 
+			var onLoadData = this.props.onLoadData;
+			var onFilesServer = this.props.onFilesServer;
+			var currentState = this.props.currentState;
 
-		rpc.call("TableSrv.show_data", [])
+			var fileOptionsOld = fileOptions;
+
+			var self = this;
+
+			rpc.call("TableSrv.show_data", [])
 			.then(function(filelist){
-				console.log("DENTRO");
 				fileOptionsAll = filelist;
 				fileOptions = [];
 				for(var i=0; i<fileOptionsAll.length; i++){
 					if(accept_data_ext.indexOf(fileOptionsAll[i].split('.').pop()) != -1) fileOptions.push(fileOptionsAll[i]);
 				}
-		});
-		console.log("PASA");
+				if(fileOptionsOld.length != fileOptions.length) {
+					self.forceUpdate(); // Avoid recursive
+					self.forceUpdate(); // Avoid recursive
+				}
+			});
 
-		var self = this;
-		var sizeSelect = 20; //Max size of the select menu
-		if(fileOptions.length < sizeSelect) sizeSelect = fileOptions.length;
+			var sizeSelect = 20; //Max size of the select menu
+			if(fileOptions.length < sizeSelect) sizeSelect = fileOptions.length;
 
-		var selectFile;
-		if(fileOptions.length === 0){
-			selectFile = React.createElement(Input, {type: "text", value: "No files on the server", disabled: "disabled"});
-		} else {
-			selectFile = React.createElement("select", {multiple: "multiple", id: "sel", size: sizeSelect, style: {"background":"transparent", "fontSize":"14px", "margin":"0 auto", "width":"100%"}}, 
-				fileOptions.sort().map(function(option, i){
-					return (
-						React.createElement("option", {value: option, style: {"padding":"5px"}}, " ", option, " ")
-					);
-				})
-			);
-		}
+			var selectFile;
+			if(fileOptions.length === 0){
+				selectFile = React.createElement(Input, {type: "text", value: "No files on the server", disabled: "disabled"});
+			} else {
+				selectFile = React.createElement("select", {multiple: "multiple", id: "sel", size: sizeSelect, style: {"background":"transparent", "fontSize":"14px", "margin":"0 auto", "width":"100%"}}, 
+					fileOptions.sort().map(function(option, i){
+						return (
+							React.createElement("option", {value: option, style: {"padding":"5px"}}, " ", option, " ")
+						);
+					})
+				);
+			}
 
-		return (
-
-	        React.createElement(Modal, React.__spread({},  this.props, {bsSize: "large", title: "Open server files", animation: true}), 
-		      React.createElement("div", {className: "modal-body"}, 
-			  	React.createElement("form", {id: "openAddForm", style: {"position": "relative", "width": "50%", "height":"80%", "margin": "0 auto", "left": "0px", "right": "0px"}}, 
-			  		React.createElement("input", {type: "radio", name: "radioSelect", id: "rOpen", defaultChecked: true}, " Open "), 
-			  		React.createElement("input", {type: "radio", name: "radioSelect", id: "rAdd", defaultChecked: false}, " Add ")
-				), 
-				React.createElement("div", {style: {position: "relative", width: "50%", margin: "0 auto", top: "10px"}}, 
-					selectFile
-				)
+			return (
+				React.createElement(Modal, React.__spread({},  this.props, {bsSize: "large", title: "Open server files", animation: true}), 
+					React.createElement("div", {className: "modal-body"}, 
+						React.createElement("form", {id: "openAddForm", style: {"position": "relative", "width": "50%", "height":"80%", "margin": "0 auto", "left": "0px", "right": "0px"}}, 
+							React.createElement("input", {type: "radio", name: "radioSelect", id: "rOpen", defaultChecked: true}, " Open "), 
+							React.createElement("input", {type: "radio", name: "radioSelect", id: "rAdd", defaultChecked: false}, " Add ")
+						), 
+						React.createElement("div", {style: {position: "relative", width: "50%", margin: "0 auto", top: "10px"}}, 
+							selectFile
+						)
 			
-		      ), 
-		      React.createElement("div", {className: "modal-footer"}, 
-				React.createElement(Button, {onClick: this.props.onHide}, " Close "), 
-				React.createElement(ModalTrigger, {modal: React.createElement(EditorSchemaMenu, {onSaveSchema: this.props.onSaveSchema, currentState: this.props.currentState, propsSelectFile: this.props, selected: document.getElementsByTagName('select')[0]})}, 
-					React.createElement(Button, {onClick: function(ev) {
-						var open = document.getElementById('rOpen').checked;
-						selected = [];
-						var sel1 = document.getElementsByTagName('select')[0];
-						for (var i=0, iLen=sel1.options.length; i<iLen; i++) if (sel1.options[i].selected) selected.push(sel1.options[i].value);
-						//if(selected.length == 0) {alert("Please, select files to open\n"); return;}
-						onLoadData(selected, open, fileOptionsAll);
-						//self.props.onHide();
-						}, bsStyle: "primary"}, " OK ")
-			  	)
-		      )
-		    )
-		)
+					), 
+					React.createElement("div", {className: "modal-footer"}, 
+						React.createElement(Button, {onClick: this.props.onHide}, " Close "), 
+						React.createElement(ModalTrigger, {modal: React.createElement(EditorSchemaMenu, {onSaveSchema: this.props.onSaveSchema, currentState: this.props.currentState, propsSelectFile: this.props, selected: document.getElementsByTagName('select')[0]})}, 
+							React.createElement(Button, {onClick: function(ev) {
+								var open = document.getElementById('rOpen').checked;
+								selected = [];
+								var sel1 = document.getElementsByTagName('select')[0];
+								for (var i=0, iLen=sel1.options.length; i<iLen; i++) if (sel1.options[i].selected) selected.push(sel1.options[i].value);
+								//if(selected.length == 0) {alert("Please, select files to open\n"); return;}
+								onLoadData(selected, open, fileOptionsAll);
+								//self.props.onHide();
+								}, bsStyle: "primary"}, " OK ")
+						)
+					)
+				)
+			)
 	    }
-
 	});
 
 
@@ -25775,14 +25791,14 @@
 			var cardEditSchema = function(attr, j, color){
 					return (
 							//React.createElement("div", {className: "form-group", style:{margin: "0 auto"}},
-							React.createElement("div", {key: attr}, 
+							React.createElement("div", {key: attr, style: {"width":"auto", "background": color, "border": "1px solid", "border-radius": "8px", "border-color": "#888"}}, 
 									React.createElement("form", {className: "form-inline", role: "form"}, 
 										React.createElement("div", {className: "form-group"}, 
-											React.createElement("div", {class: "btn btn-xs btn-default card-anchor card-move"}, 
+											React.createElement("div", {class: "btn btn-xs btn-default card-anchor card-move", style: {"marginTop":"4px", }}, 
 												React.createElement("span", {className: "icon glyphicon glyphicon-move"})
 											)
 										), 
-										React.createElement("div", {className: "form-group", style: {"marginLeft":"10px", "width":"auto"}}, 
+										React.createElement("div", {className: "form-group", style: {"marginTop":"4px", "marginLeft":"10px", "width":"auto"}}, 
 											React.createElement("input", {className: "form-control", type: "text", id: attr, defaultValue: attr, onChange: function (ev){
 														var oldName = ev.target.id; var newName = ev.target.value;
 														if(newName in changedSchema.attributes){ alert("You can't rename two attributes with the same name"); return; }
@@ -25796,7 +25812,7 @@
 													}
 												})
 										), 
-										React.createElement("div", {className: "form-group", style: {"marginLeft":"10px"}}, 
+										React.createElement("div", {className: "form-group", style: {"marginTop":"4px", "marginLeft":"10px"}}, 
 											React.createElement("select", {className: "form-control", id: "sel"+i, style: {"width":"auto", "background": "#428bca", "color": "#fff"}, onChange: function (ev){
 																changedSchema.attributes[originalNames[attr]].attribute_type = ev.target.value;
 															}
@@ -25818,16 +25834,22 @@
 			if(currentOrder.length > 0) {
 				var formCards = function(){
 						return (
-							React.createElement("div", {style: {"position": "relative", "width": "60%", "margin": "0 auto", "marginBottom": "20px"}}, 
-								React.createElement(ReactGridLayout, {className: "layout", layout: layout, cols: 1, rowHeight: 50, isResizable: false, 
-								onLayoutChange: function(newLayout)  {
-		                        	let newOrder = self.orderFromLayout(newLayout);
-	    	                		if (! _.isEqual(currentOrder, newOrder)) changedSchema.order = newOrder; // Avoids infinite recursion
-	                    		}}, 
-									_.map(currentOrder, function(attr, i){
-											//if(new_cols.indexOf(attr) != -1) return( cardEditSchema(attr, i, "#FFF") )
-											return(	cardEditSchema(attr, i, "#FFF") );
-										}
+							React.createElement("div", null, 
+								React.createElement("div", {style: {"position": "relative", "width": "40%", "margin": "0 auto", "marginBottom": "20px"}}, 
+									React.createElement("label", null, " Dataset name: "), 
+									React.createElement(Input, {type: "text", defaultValue: datasetName, onChange: function (ev){ datasetName = ev.target.value; }})
+								), 
+								React.createElement("div", {style: {"position": "relative", "width": "55%", "margin": "0 auto", "marginBottom": "20px"}}, 
+									React.createElement(ReactGridLayout, {className: "layout", layout: layout, cols: 1, rowHeight: 55, isResizable: false, 
+									onLayoutChange: function(newLayout)  {
+										let newOrder = self.orderFromLayout(newLayout);
+										if (! _.isEqual(currentOrder, newOrder)) changedSchema.order = newOrder; // Avoids infinite recursion
+									}}, 
+										_.map(currentOrder, function(attr, i){
+												if(new_cols.indexOf(attr) != -1) return( cardEditSchema(attr, i, "#EEE") )
+												return(	cardEditSchema(attr, i, "#CCC") );
+											}
+										)
 									)
 								)
 							)
