@@ -8,7 +8,7 @@ Created on 13/02/2014
 from indyva.facade.front import Front
 from indyva.facade.showcase import Showcase
 import pandas as pd
-import os
+import os, json
 from __init__ import ROOT
 
 ASSETSPATH = os.path.join(ROOT, 'web', 'assets')
@@ -43,5 +43,16 @@ def export_dselect(dselect_name, dataset_name, fileName, excelCsv=False):
     return os.path.join('assets', 'exports', download_name)
 
 
+def export_schema(schema, fileName):
+    result_schema = {'index': schema['index'], 'order': schema['order'], 'attributes': schema['attributes']}
+
+    download_name = fileName.replace(" ", "_") + '_schema'
+    with open(os.path.join(ASSETSPATH, 'exports', download_name), "w") as text_file:
+        json.dump(result_schema, text_file)
+
+    return os.path.join('assets', 'exports', download_name)
+
+
 def expose_methods():
     Front.instance().add_method(export_dselect)
+    Front.instance().add_method(export_schema)

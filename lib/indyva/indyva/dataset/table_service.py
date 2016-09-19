@@ -42,7 +42,7 @@ class TableService(INamed):
         dispatcher.add_method(self.new_table)
         dispatcher.add_method(self.expose_table)
         dispatcher.add_method(self.del_table)
-        dispatcher.add_method(self.import_data)        
+        dispatcher.add_method(self.import_file)        
         dispatcher.add_method(self.show_data)        
         dispatcher.add_method(self.load_data_server)
         dispatcher.add_method(self.save_schema)
@@ -269,7 +269,7 @@ class TableService(INamed):
         if resp == "OK": return "OK"
         return "ERROR: The schema could not be saved"
 
-    def import_data(self, str_data, table_name, file_name): # Import file to server-side
+    def import_file(self, str_data, file_name): # Import file to server-side
         global data_dir
 
         file_name = file_name.encode('utf-8')
@@ -284,6 +284,8 @@ class TableService(INamed):
 
         with open(data_dir+"/"+file_name, "w") as text_file:
             text_file.write(str_data.encode('utf-8'))
+
+        print "--> Imported file '"+file_name+"' <--"
 
         return "OK"
 

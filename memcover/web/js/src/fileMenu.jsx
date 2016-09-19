@@ -11,14 +11,14 @@ var ModalTrigger = BS.ModalTrigger;
 var SelectFileMenu = require('./selectFileMenu');
 var SaveDataMenu = require('./saveDataMenu');
 var EditorSchemaMenu = require('./editorSchemaMenu');
+var ImportSchemaMenu = require('./importSchemaMenu');
 
 module.exports = React.createClass({
 
     getDefaultProps: function() {
 	return {
 	    tables: {},
-	    label: "X",
-	    header: "Export to Excel",
+	    label: "File",
 	    bsStyle: "default"
 	};
     },
@@ -33,11 +33,12 @@ module.exports = React.createClass({
 	var importFileMenuData = this.importFileMenuData;
 	var onLoadData = this.props.onLoadData;
 	var onImportData = this.props.onImportData;
+	var onImportSchema = this.props.onImportSchema;
 	var onSaveSchema = this.props.onSaveSchema;
 	var onSaveData = this.props.onSaveData;
 	var onExportCsv = this.props.onExportCsv;
+	var onExportSchema = this.props.onExportSchema;
 	var onExportExcel = this.props.onExportExcel;
-	var header = this.props.header;
 	var currentState = this.props.currentState;
 	var tableName = Object.keys(this.props.currentState.tables)[0];
 	
@@ -48,8 +49,10 @@ module.exports = React.createClass({
 				bsStyle={this.props.bsStyle}
 				title={this.props.label}>
 
-				<BS.MenuItem onSelect={importFileMenuData}> Import </BS.MenuItem>
-				<input style={{"display":"none"}} type="file" multiple="multiple" accept=".csv, .xlsx, .xls" ref="importFileData" onChange={onImportData}/>
+				{/*<ModalTrigger modal={<ImportSchemaMenu onImportSchema={this.props.onImportSchema}/>}>*/}
+					<BS.MenuItem onSelect={importFileMenuData}> Import files </BS.MenuItem>
+				{/*</ModalTrigger>*/}
+				<input style={{"display":"none"}} type="file" multiple="multiple" accept=".csv, .xlsx, .xls, .json" ref="importFileData" onChange={onImportData}/>
 				
 				<ModalTrigger modal={<SelectFileMenu onLoadData={this.props.onLoadData} onSaveSchema={this.props.onSaveSchema} currentState={this.props.currentState}/>}>
 					<BS.MenuItem> Open </BS.MenuItem>		  
@@ -81,6 +84,7 @@ module.exports = React.createClass({
 					)
 				})
 				}
+				<BS.MenuItem onSelect={onExportSchema}> Export schema </BS.MenuItem>
             </BS.DropdownButton>
 	)
     }

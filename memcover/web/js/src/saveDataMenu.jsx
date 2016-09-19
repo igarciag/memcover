@@ -6,8 +6,6 @@ var _ = require('lodash');
 var BS = require('react-bootstrap');
 var Button = BS.Button;
 var Glyphicon = BS.Glyphicon;
-var ModalTrigger = BS.ModalTrigger;
-var TabbedArea = BS.TabbedArea;
 var Button = BS.Button;
 var Modal = BS.Modal;
 var Input = BS.Input;
@@ -36,7 +34,7 @@ module.exports = React.createClass({
 	return (
 
         <Modal {...this.props} bsSize="large" title="Save dataset" animation={true}>
-	      <div class="modal-body"> 
+	      <div className="modal-body"> 
 				<div style={{"position": "relative", "width": "40%", "margin": "0 auto", "marginBottom": "20px"}}>
 					<label> Dataset name </label>
 					<Input type="text" id="tableName" defaultValue={datasetName} onChange={function (ev){

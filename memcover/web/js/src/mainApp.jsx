@@ -217,9 +217,21 @@ var Store = {
 	rpc.call("export_dselect", [table.selection, table.name, fileName, excelCsv])
 	    .then(function(d){
 		var uri = "http://" + window.location.host + window.location.pathname + d;
-		window.open(uri, fileName);
+		window.open(uri, fileName+".json");
 	    });
     },
+
+	/*exportSchema: function(table, fileName, excelCsv) {
+	var rpc = Context.instance().rpc;
+
+	if(!fileName || fileName == null) fileName = "joined";
+
+	rpc.call("export_schema", [table.schema, fileName])
+	    .then(function(d){
+		var uri = "http://" + window.location.host + window.location.pathname + d;
+		window.open(uri, fileName);
+	    });
+    },*/
 
     describeStats: function(table, selection, attribute) {
 	var rpc = Context.instance().rpc;
@@ -322,9 +334,9 @@ module.exports = React.createClass({
 				for (var i = 0; i < files.length; i++) {
 					var file_ext = files[i].name.split('.');
 					var file_ext = file_ext[file_ext.length - 1];
-					if ( accept_data_ext.indexOf(file_ext) == -1 ) {
+					/*if ( accept_data_ext.indexOf(file_ext) == -1 ) {
 						alert("El fichero '"+file.name+"' no esta en el formato correcto\n\nAccepted file extensions: "+accept_data_ext.join()+"\n");
-					}
+					}*/
 			
 					var f = files[i];
 
@@ -335,7 +347,6 @@ module.exports = React.createClass({
 						return function (e) {
 							var ext = theFile.name.split('.')[theFile.name.split('.').length - 1];
 							var res = this.result;
-							var tableName = Object.keys(self.state.tables)[0];
 
 							if( ext == 'xls' || ext == 'xlsx' ){
 								var wb = XLSX.read(res, {type: 'binary'});
@@ -343,13 +354,13 @@ module.exports = React.createClass({
 								res = XLSX.utils.sheet_to_csv(ws);
 							}
 
-							var ret = rpc.call("TableSrv.import_data", [res, tableName, theFile.name])
+							var ret = rpc.call("TableSrv.import_file", [res, theFile.name])
 							.then(function(resp){ if(resp != "OK" && resp != "") alert(resp); else cb(); });
 							
 							function cb() {
-								var resp = confirm("Imported file '"+theFile.name+"'\n\nDo you want to import the associated schema (.json)?\n");
-								if(!resp) return;
-								alert("Schema importado\n");
+								//var resp = confirm("Imported file '"+theFile.name+"'\n\nDo you want to import the associated schema (.json)?\n");
+								/*if(!resp) return;
+								alert("Schema importado\n");*/
 							}
 					};
 					})(f);
@@ -357,8 +368,31 @@ module.exports = React.createClass({
 				}
 	    },
 
+		importSchema: function(ev) {			
+				var self = this;
+				var when =  __webpack_require__(/*! when */ 5);
+				var rpc = Context.instance().rpc;
+
+				var files = ev.target.files;
+				
+				var accept_schema_ext = ['json'];
+				
+				var f = files[0];
+
+				var reader = new FileReader();
+				//ev.target.value = ""; // So same file rise onChange
+
+				reader.onload = (function(theFile) {
+					return function (e) {
+						var res = this.result;
+						var ret = rpc.call("TableSrv.import_file", [res, theFile.name])
+						.then(function(resp){ if(resp != "OK" && resp != "") alert(resp);});
+					};
+				})(f);
+				reader.readAsBinaryString(f);
+	    },
 			
-		loadData: function(sel, op, fileOptionsAll) {
+		loadData: function(sel, selSchema, op, fileOptionsAll) {
 
 			var self = this;
 			var when =  __webpack_require__(/*! when */ 5);
@@ -367,6 +401,10 @@ module.exports = React.createClass({
 			var tableName = Object.keys(self.state.tables)[0];
 			var selected = "";
 
+			if(!self.state.tables[tableName].dataset_name || self.state.tables[tableName].dataset_name == null){
+				if(sel.length == 1) self.state.tables[tableName].dataset_name = sel[0].split('.')[0];
+				else self.state.tables[tableName].dataset_name = "combined";
+			}
 			//rpc.call("TableSrv.show_data", [])
 			//.then(function(filelist){
 				//alert("SELECT A FILE:\n\n"+filelist.join("\n")+"\n");
@@ -402,9 +440,12 @@ module.exports = React.createClass({
 				    });
 	    		return _(attrs).keys().sort().value();
 			}
-			var associatedJson = false;
 			sel.map(function(selected, i){
-				if(fileOptionsAll.indexOf(selected.split('.')[0]+"_schema.json") != -1) associatedJson = true; //Hay _schema.json asociado
+				var associatedJson = false;				
+				if(selSchema.indexOf(selected.split('.')[0]+"_schema.json") != -1) associatedJson = true; //Hay _schema.json asociado
+
+				if(associatedJson == true) console.log("Schema loaded by '"+selected.split('.')[0]+"_schema.json'");
+				else console.log("Schema infered");
 
 				// Load new data and schema if necessary
 				rpc.call("TableSrv.load_data_server", [selected, tableName, op, cols_old, associatedJson]) // This function returns the infer schema
@@ -483,6 +524,7 @@ module.exports = React.createClass({
 
 		var tableName = Object.keys(self.state.tables)[0];
 
+		console.log("Saved dataset_name '"+datasetName+"'");
 		self.state.tables[tableName].dataset_name = datasetName;
 			
 		self.state.tables[tableName].schema = newSchema;
@@ -512,7 +554,7 @@ module.exports = React.createClass({
 				
 				rpc.call("TableSrv.save_data", [tableName, dataset_name, data, schema])
 					.then(function(resp){
-							if(resp == "OK") alert("Dataset '"+dataset_name+"' saved\n");
+							if(resp == "OK") alert("Files '"+dataset_name+".csv' and '"+dataset_name+"_schema.json' saved\n");
 							else alert("Error saving dataset '"+dataset_name+"'\n"+resp+"\n");
 						}
 					);
@@ -540,6 +582,39 @@ module.exports = React.createClass({
 			saveAs(blob, "analysis_"+ date.toJSON() +".json");
 			})
 			.done(function() { rpc.call("GrammarSrv.del_root", ['root']);});
+    },
+
+	exportSchema: function() {
+		var when =  require("when");
+		var rpc = Context.instance().rpc;
+
+		var tableName = Object.keys(this.state.tables)[0];
+		var schema = this.state.tables[tableName].schema;
+		var fileName = "joined";
+		if(this.state.tables[tableName].dataset_name && this.state.tables[tableName].dataset_name != null) fileName = this.state.tables[tableName].dataset_name;
+
+		console.log("SCHEAAAAMA:", schema);
+		var schemaToSave = {index: schema.index, attributes: schema.attributes, order: schema.order};
+
+		var blob = new Blob([JSON.stringify(schemaToSave)], {type: "text/plain;charset=utf-8"});
+		saveAs(blob, fileName+"_schema.json");
+
+		/*var stateToSave = _.clone(schema);
+		schemaToSave.subscriptions = {};
+
+		rpc.call("GrammarSrv.new_root", ['root'])
+			.then(function(){ return when.map(_.pluck(schemaToSave.tables, "selection"), function(dselect) {
+			return rpc.call("DynSelectSrv.get_conditions", [dselect])
+				.then(function(conditions){ rpc.call("GrammarSrv.add_condition", ['root', conditions]);})
+				.then(function(){ rpc.call("GrammarSrv.add_dynamic", ['root', dselect]);});
+			});})
+			.then(function(){ return rpc.call("GrammarSrv.grammar", ['root']);})
+			.then(function(grammar){
+			var blob = new Blob([JSON.stringify(schemaToSave)], {type: "text/plain;charset=utf-8"});
+			var date = new Date();
+			saveAs(blob, "analysis_"+ date.toJSON() +".json");
+			})
+			.done(function() { rpc.call("GrammarSrv.del_root", ['root']);});*/
     },
 
     loadAnalysis: function(ev) {
@@ -836,8 +911,10 @@ module.exports = React.createClass({
 			tables={this.state.tables}
 			onExportCsv={function(table){Store.exportTable(table, table.dataset_name, false);}}
 			onExportExcel={function(table){Store.exportTable(table, table.dataset_name, true);}}
+			onExportSchema={self.exportSchema.bind(self)}
 			onLoadData={self.loadData}
 			onImportData={self.importData}
+			onImportSchema={self.importSchema}
 			onSaveSchema={self.saveSchema}
 			onSaveData={self.saveData}
 			onExportData={self.exportDataLocal.bind(self, self.state)}

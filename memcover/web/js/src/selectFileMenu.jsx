@@ -19,17 +19,18 @@ var context = new Context(window.location.hostname, 'ws', 19000);
 var rpc = context.rpc;
 
 var fileOptions = [];
+var fileOptionsSchema = [];
 var fileOptionsAll = [];
 var accept_data_ext = ['csv', 'xls', 'xlsx']
+var accept_schema_ext = ['json']
 rpc.call("TableSrv.show_data", [])
 	.then(function(filelist){
 		fileOptionsAll = filelist;
 		for(var i=0; i<fileOptionsAll.length; i++){
 			if(accept_data_ext.indexOf(fileOptionsAll[i].split('.').pop()) != -1) fileOptions.push(fileOptionsAll[i]);
+			if(accept_schema_ext.indexOf(fileOptionsAll[i].split('.').pop()) != -1) fileOptionsSchema.push(fileOptionsAll[i]);
 		}
 	});
-	
-var selected = [];
 
 module.exports = React.createClass({
 
@@ -41,13 +42,6 @@ module.exports = React.createClass({
 	};
     },
 
-    clickSubmitButton: function(ev){
-		var options = select && select.options;
-  		for (var i=0, iLen=options.length; i<iLen; i++) {
-    		if (options[i].selected) selected.push(options[i]);
-  		}
-    },
-
     render: function() {
 		var loadFileMenuData = this.loadFileMenuData; 
 		var filesMenuServer = this.filesMenuServer; 
@@ -56,6 +50,7 @@ module.exports = React.createClass({
 		var currentState = this.props.currentState;
 
 		var fileOptionsOld = fileOptions;
+		var fileOptionsSchemaOld = fileOptionsSchema;
 
 		var self = this;
 
@@ -63,26 +58,42 @@ module.exports = React.createClass({
 		.then(function(filelist){
 			fileOptionsAll = filelist;
 			fileOptions = [];
+			fileOptionsSchema = [];
 			for(var i=0; i<fileOptionsAll.length; i++){
 				if(accept_data_ext.indexOf(fileOptionsAll[i].split('.').pop()) != -1) fileOptions.push(fileOptionsAll[i]);
+				if(accept_schema_ext.indexOf(fileOptionsAll[i].split('.').pop()) != -1) fileOptionsSchema.push(fileOptionsAll[i]);
 			}
-			if(fileOptionsOld.length != fileOptions.length) {
-				self.forceUpdate(); // Avoid recursive
+			if(fileOptionsOld.length != fileOptions.length || fileOptionsSchemaOld.length != fileOptionsSchema.length) {
 				self.forceUpdate(); // Avoid recursive
 			}
 		});
 
-		var sizeSelect = 20; //Max size of the select menu
+		var sizeSelect = 10; //Max size of the select menu
+		var sizeSelectSchema = 10; //Max size of the select menu
 		if(fileOptions.length < sizeSelect) sizeSelect = fileOptions.length;
+		if(fileOptionsSchema.length < sizeSelectSchema) sizeSelectSchema = fileOptionsSchema.length;
 
-		var selectFile;
+		var selectFileData;
 		if(fileOptions.length === 0){
-			selectFile = <Input type="text" value="No files on the server" disabled="disabled"/>;
+			selectFileData = <Input type="text" value="No data files on the server" disabled="disabled"/>;
 		} else {
-			selectFile = <select multiple="multiple" id="sel" size={sizeSelect} style={{"background":"transparent", "fontSize":"14px", "margin":"0 auto", "width":"100%"}}>
+			selectFileData = <select multiple="multiple" id="selData" size={sizeSelect} style={{"background":"transparent", "fontSize":"14px", "margin":"0 auto", "width":"100%"}} onDblClick={function(){ alert("DOUBLE_CLICK"); }}>
 				{fileOptions.sort().map(function(option, i){
 					return (
-						<option value={option} style={{"padding":"5px"}}> {option} </option>
+						<option value={option} style={{"padding":"5px"}}>{option}</option>
+					);
+				})}
+			</select>;
+		}
+
+		var selectFileSchema;
+		if(fileOptionsSchema.length === 0){
+			selectFileSchema = <Input type="text" value="No schema files on the server" disabled="disabled"/>;
+		} else {
+			selectFileSchema = <select multiple="multiple" id="selSchema" size={sizeSelectSchema} style={{"background":"transparent", "fontSize":"14px", "margin":"0 auto", "width":"100%"}}>
+				{fileOptionsSchema.sort().map(function(option, i){
+					return (
+						<option value={option} style={{"padding":"5px"}}>{option}</option>
 					);
 				})}
 			</select>;
@@ -92,11 +103,14 @@ module.exports = React.createClass({
 			<Modal {...this.props} bsSize="large" title="Open server files" animation={true}>
 				<div className='modal-body'>
 					<form id="openAddForm" style={{"position": "relative", "width": "50%", "height":"80%", "margin": "0 auto", "left": "0px", "right": "0px"}}>
-						<input type="radio" name="radioSelect" id="rOpen" defaultChecked={true}> Open </input>
-						<input type="radio" name="radioSelect" id="rAdd" defaultChecked={false}> Add </input>
+						<input type="radio" name="radioSelect" id="rOpen" defaultChecked={true}> Open new </input>
+						<input type="radio" name="radioSelect" id="rAdd" defaultChecked={false}> Add to current</input>
 					</form>
-					<div style={{position: "relative", width: "50%", margin: "0 auto", top: "10px"}}>
-						{selectFile}
+					<div style={{position: "relative", width: "50%", margin: "0 auto"}}>
+						<h4 style={{"margin": "20px 0 10px 0"}}> Data files: </h4>
+						{selectFileData}			
+						<h4 style={{"margin": "20px 0 10px 0"}}> Schema files (optional): </h4>
+						{selectFileSchema}
 					</div>
 		
 				</div>
@@ -105,11 +119,13 @@ module.exports = React.createClass({
 					<ModalTrigger modal={<EditorSchemaMenu onSaveSchema={this.props.onSaveSchema} currentState={this.props.currentState} propsSelectFile={this.props} selected={document.getElementsByTagName('select')[0]}/>}>
 						<Button onClick={function(ev) {
 							var open = document.getElementById('rOpen').checked;
-							selected = [];
-							var sel1 = document.getElementsByTagName('select')[0];
+							var selected = [];
+							var selectedSchema = [];
+							var sel1 = document.getElementById('selData');
 							for (var i=0, iLen=sel1.options.length; i<iLen; i++) if (sel1.options[i].selected) selected.push(sel1.options[i].value);
-							//if(selected.length == 0) {alert("Please, select files to open\n"); return;}
-							onLoadData(selected, open, fileOptionsAll);
+							var sel2 = document.getElementById('selSchema');
+							if(sel2 != null) for (var i=0, iLen=sel2.options.length; i<iLen; i++) if (sel2.options[i].selected) selectedSchema.push(sel2.options[i].value);
+							onLoadData(selected, selectedSchema, open, fileOptionsAll);
 							//self.props.onHide();
 							}} bsStyle="primary"> OK </Button>
 					</ModalTrigger>
