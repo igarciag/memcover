@@ -104,7 +104,7 @@ module.exports = React.createClass({
 				<div className='modal-body'>
 					<form id="openAddForm" style={{"position": "relative", "width": "50%", "height":"80%", "margin": "0 auto", "left": "0px", "right": "0px"}}>
 						<input type="radio" name="radioSelect" id="rOpen" defaultChecked={true}> Open new </input>
-						<input type="radio" name="radioSelect" id="rAdd" defaultChecked={false}> Add to current</input>
+						<input type="radio" name="radioSelect" id="rAdd" defaultChecked={false} style={{"marginLeft": "10px"}}> Add to current</input>
 					</form>
 					<div style={{position: "relative", width: "50%", margin: "0 auto"}}>
 						<h4 style={{"margin": "20px 0 10px 0"}}> Data files: </h4>

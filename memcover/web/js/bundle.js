@@ -2713,10 +2713,11 @@
 	var CardCreationMenu = __webpack_require__(203);
 	var AnalysisMenu = __webpack_require__(204);
 	var FileMenu = __webpack_require__(205);
+	var SignInMenu = __webpack_require__(210);
 
-	var PCPChart = reactify(__webpack_require__(210), "PCPChart");
-	var BoxChart = reactify(__webpack_require__(211), "BoxChart");
-	var ScatterChart = reactify(__webpack_require__(213), "ScatterChart");
+	var PCPChart = reactify(__webpack_require__(211), "PCPChart");
+	var BoxChart = reactify(__webpack_require__(212), "BoxChart");
+	var ScatterChart = reactify(__webpack_require__(214), "ScatterChart");
 	// var ParSetChart = reactify(require('./parsetChart'), "ParSetChart");
 
 	/**
@@ -2729,6 +2730,7 @@
 	var Button = BS.Button;
 	var Glyphicon = BS.Glyphicon;
 	var ModalTrigger = BS.ModalTrigger;
+	var Input = BS.Input;
 
 
 	var Store = {
@@ -2982,7 +2984,8 @@
 		    "conditions": conditions,
 		    "layout": layout,
 		    "cards": cards,
-		    "subscriptions": subscriptions
+		    "subscriptions": subscriptions,
+			"username": ""
 		};
 	    },
 
@@ -3577,48 +3580,50 @@
 		return (
 		    React.createElement("div", {className: "mainApp"}, 
 
-		      React.createElement(Navbar, {brand: "Memcover", fixedTop: true}, 
-			React.createElement(ModalTrigger, {modal: React.createElement(CardCreationMenu, {tabs: creationVisMenuTabs, onCreateCard: this.addCard})}, 
-			  React.createElement(Button, {className: "navbar-btn pull-right", bsStyle: "primary"}, 
-			    React.createElement(Glyphicon, {glyph: "plus"}), " Visualization"
-			  )
-			), 
+				React.createElement(Navbar, {brand: "Memcover", fixedTop: true}, 
+					React.createElement(SignInMenu, {className: "navbar-btn pull-right", 
+						tables: this.state.tables, 
+						currentState: self.state
+						}
+					), 
+					
+					React.createElement(ModalTrigger, {modal: React.createElement(CardCreationMenu, {tabs: creationVisMenuTabs, onCreateCard: this.addCard})}, 
+						React.createElement(Button, {className: "navbar-btn pull-right", bsStyle: "primary", style:  {"margin-right":40} }, 
+							React.createElement(Glyphicon, {glyph: "plus"}), " Visualization"
+						)
+					), 
 
-			React.createElement(ModalTrigger, {modal: React.createElement(CardCreationMenu, {tabs: creationFilterMenuTabs, onCreateCard: this.addCard})}, 
-			  React.createElement(Button, {className: "navbar-btn pull-right", bsStyle: "primary", style:  {"margin-right":10} }, 
-			    React.createElement(Glyphicon, {glyph: "plus"}), " Filter"
-			  )
-			), 
+					React.createElement(ModalTrigger, {modal: React.createElement(CardCreationMenu, {tabs: creationFilterMenuTabs, onCreateCard: this.addCard})}, 
+						React.createElement(Button, {className: "navbar-btn pull-right", bsStyle: "primary", style:  {"margin-right":10} }, 
+							React.createElement(Glyphicon, {glyph: "plus"}), " Filter"
+						)
+					), 
 
-	                React.createElement(AnalysisMenu, {className: "navbar-btn pull-right", 
-				style:  {"margin-right":10}, 
-				tables: this.state.tables, 
-				onExport: function(table){Store.exportTable(table, table.name, true);}, 
-				onOpen: self.loadAnalysis, 
-		        onSave: self.saveAnalysis.bind(self, self.state)
-				}
-
-			), 
-			    	
+					React.createElement(AnalysisMenu, {className: "navbar-btn pull-right", 
+						style:  {"margin-right":10}, 
+						tables: this.state.tables, 
+						onExport: function(table){Store.exportTable(table, table.name, true);}, 
+						onOpen: self.loadAnalysis, 
+						onSave: self.saveAnalysis.bind(self, self.state)
+						}
+					), 
+							
 					React.createElement(FileMenu, {className: "navbar-btn pull-right", 
-				style:  {"margin-right":10}, 
-				tables: this.state.tables, 
-				onExportCsv: function(table){Store.exportTable(table, table.dataset_name, false);}, 
-				onExportExcel: function(table){Store.exportTable(table, table.dataset_name, true);}, 
-				onExportSchema: self.exportSchema.bind(self), 
-				onLoadData: self.loadData, 
-				onImportData: self.importData, 
-				onImportSchema: self.importSchema, 
-				onSaveSchema: self.saveSchema, 
-				onSaveData: self.saveData, 
-				onExportData: self.exportDataLocal.bind(self, self.state), 
-				currentState: self.state
-				}
-
-			)
-
-		      ), 
-
+						style:  {"margin-right":10}, 
+						tables: this.state.tables, 
+						onExportCsv: function(table){Store.exportTable(table, table.dataset_name, false);}, 
+						onExportExcel: function(table){Store.exportTable(table, table.dataset_name, true);}, 
+						onExportSchema: self.exportSchema.bind(self), 
+						onLoadData: self.loadData, 
+						onImportData: self.importData, 
+						onImportSchema: self.importSchema, 
+						onSaveSchema: self.saveSchema, 
+						onSaveData: self.saveData, 
+						onExportData: self.exportDataLocal.bind(self, self.state), 
+						currentState: self.state
+						}
+					)
+				), 
 
 		      React.createElement(ReactGridLayout, {className: "layout", 
 			      layout: layout, 
@@ -25623,9 +25628,7 @@
 					bsStyle: this.props.bsStyle, 
 					title: this.props.label}, 
 
-					/*<ModalTrigger modal={<ImportSchemaMenu onImportSchema={this.props.onImportSchema}/>}>*/
-						React.createElement(BS.MenuItem, {onSelect: importFileMenuData}, " Import files "), 
-					/*</ModalTrigger>*/
+					React.createElement(BS.MenuItem, {onSelect: importFileMenuData}, " Import files "), 
 					React.createElement("input", {style: {"display":"none"}, type: "file", multiple: "multiple", accept: ".csv, .xlsx, .xls, .json", ref: "importFileData", onChange: onImportData}), 
 					
 					React.createElement(ModalTrigger, {modal: React.createElement(SelectFileMenu, {onLoadData: this.props.onLoadData, onSaveSchema: this.props.onSaveSchema, currentState: this.props.currentState})}, 
@@ -25776,7 +25779,7 @@
 					React.createElement("div", {className: "modal-body"}, 
 						React.createElement("form", {id: "openAddForm", style: {"position": "relative", "width": "50%", "height":"80%", "margin": "0 auto", "left": "0px", "right": "0px"}}, 
 							React.createElement("input", {type: "radio", name: "radioSelect", id: "rOpen", defaultChecked: true}, " Open new "), 
-							React.createElement("input", {type: "radio", name: "radioSelect", id: "rAdd", defaultChecked: false}, " Add to current")
+							React.createElement("input", {type: "radio", name: "radioSelect", id: "rAdd", defaultChecked: false, style: {"marginLeft": "10px"}}, " Add to current")
 						), 
 						React.createElement("div", {style: {position: "relative", width: "50%", margin: "0 auto"}}, 
 							React.createElement("h4", {style: {"margin": "20px 0 10px 0"}}, " Data files: "), 
@@ -25935,10 +25938,10 @@
 								React.createElement("div", {className: "form-group", style: {"verticalAlign":"middle"}}, 
 									React.createElement("div", {className: "btn btn-xs btn-default", "aria-hidden": "true"}, 
 										React.createElement("span", {className: "icon glyphicon glyphicon-move"})
-										), 
-										React.createElement("div", {className: "btn btn-xs btn-default", "aria-hidden": "true", onClick: function(ev){ self.onRemoveItem(attr); delete self.state.originalNames[attr]; delete changedSchema.attributes[attr]; if(changedSchema.order.indexOf(attr) > -1) changedSchema.order.splice(changedSchema.order.indexOf(attr), 1);; console.log("changedSchema", changedSchema); }}, 
+									), 
+									React.createElement("div", {className: "btn btn-xs btn-default", "aria-hidden": "true", onClick: function(ev){ self.onRemoveItem(attr); delete self.state.originalNames[attr]; delete changedSchema.attributes[attr]; if(changedSchema.order.indexOf(attr) > -1) changedSchema.order.splice(changedSchema.order.indexOf(attr), 1);; console.log("changedSchema", changedSchema); }}, 
 											React.createElement("span", {className: "icon glyphicon glyphicon-remove"})
-										), 
+									), 
 										React.createElement("input", {type: "text", id: attr, old: attr, defaultValue: attr, style: {"width":"50%", "min-width":"20%", "height":"30px", "marginLeft":"5%"}, onChange: function (ev){
 													var oldName = ev.target.old; var newName = ev.target.value;
 													ev.target.old = newName;
@@ -26150,6 +26153,100 @@
 
 /***/ },
 /* 210 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict'
+
+	var React = __webpack_require__(1);
+	var _ = __webpack_require__(2);
+
+	var BS = __webpack_require__(117);
+	var Button = BS.Button;
+	var Glyphicon = BS.Glyphicon;
+	var ModalTrigger = BS.ModalTrigger;
+	var Input = BS.Input;
+
+	module.exports = React.createClass({displayName: "exports",
+
+	    getDefaultProps: function() {
+		return {
+		    label: "Login",
+		    bsStyle: "default"
+		};
+	    },
+
+	    render: function() {
+		var currentState = this.props.currentState;
+
+		function getCookie(cname) {
+			var name = cname + "=";
+			var ca = document.cookie.split(';');
+			for(var i = 0; i <ca.length; i++) {
+				var c = ca[i];
+				while (c.charAt(0)==' ') {
+					c = c.substring(1);
+				}
+				if (c.indexOf(name) == 0) {
+					return c.substring(name.length,c.length);
+				}
+			}
+			return "";
+		}
+
+		var c_username = getCookie("username");
+		var self = this;
+		
+		return (
+
+				React.createElement(BS.DropdownButton, {className: this.props.className, 
+					style: this.props.style, 
+					bsStyle: this.props.bsStyle, 
+					title: this.props.label}, 
+					React.createElement("div", {style: {"width": "250px"}}, 
+							React.createElement("div", {style: {"position": "relative", "width": "80%", "margin": "0 auto"}}, 
+								React.createElement("div", {className: "input-group", style: {"marginTop":"15px"}}, 
+									React.createElement("span", {className: "input-group-addon"}, 
+										React.createElement("i", {className: "glyphicon glyphicon-user"})
+									), 
+									React.createElement("input", {id: "username", type: "text", className: "form-control", placeholder: "Username", defaultValue: c_username})
+								), 
+								React.createElement("div", {className: "input-group", style: {"marginTop":"10px"}}, 
+									React.createElement("span", {className: "input-group-addon"}, 
+										React.createElement("i", {className: "glyphicon glyphicon-lock"})
+									), 
+									React.createElement("input", {id: "pass", type: "password", className: "form-control", placeholder: "Password"})
+								), 
+								React.createElement("div", {style: {"marginTop":"10px"}}, 
+									React.createElement("input", {id: "remember", style: {"float": "left", "marginRight": "10px"}, type: "checkbox", value: "1"}), 
+									React.createElement("label", {class: "string optional", for: "user_remember_me"}, " Remember me")
+								), 
+								React.createElement(Button, {class: "btn btn-primary", style: {"clear": "left", "width": "100%", "height": "32px", "fontSize": "13px", "marginTop":"10px", "marginBottom":"7px"}, bsStyle: "primary", onClick: function(ev) {
+									var e_error = document.getElementById("login_error");
+									var e_username = document.getElementById("username").value;
+									var e_pass = document.getElementById("pass").value;
+									var e_remember = document.getElementById("remember").checked;
+									if(e_username != "admin" || e_pass != "admin"){ e_error.style.display = 'block'; return; }
+									console.log("LOGIN CORRECT");
+									if(e_remember) document.cookie = "username="+e_username;
+									e_error.style.display = 'none';
+									currentState.username = e_username;
+									self.props.onHide();
+								}}, " Sign In "), 
+								React.createElement("div", {id: "login_error", style: {"display":"none"}}, 
+									React.createElement("i", {id: "login_error_icon", className: "glyphicon glyphicon-remove"}), 
+									React.createElement("label", {class: "string optional", for: "login_error_icon", style: {"marginLeft":"3px", "fontWeight": "normal", "fontSize":"13px", "color":"red"}}, " Invalid username or password")
+								)								
+							)	
+					)
+	            )
+		)
+	    }
+
+	});
+
+
+/***/ },
+/* 211 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var d3 = __webpack_require__(198);
@@ -26399,12 +26496,12 @@
 
 
 /***/ },
-/* 211 */
+/* 212 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var d3 = __webpack_require__(198);
 	var _ = __webpack_require__(2);
-	__webpack_require__(212);
+	__webpack_require__(213);
 
 
 	module.exports = {
@@ -26571,7 +26668,7 @@
 
 
 /***/ },
-/* 212 */
+/* 213 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var d3 = __webpack_require__(198);
@@ -26879,10 +26976,10 @@
 
 
 /***/ },
-/* 213 */
+/* 214 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var c3 = __webpack_require__(214);
+	var c3 = __webpack_require__(215);
 	var _ = __webpack_require__(2);
 
 	module.exports = {
@@ -26927,7 +27024,7 @@
 
 
 /***/ },
-/* 214 */
+/* 215 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;(function (window) {

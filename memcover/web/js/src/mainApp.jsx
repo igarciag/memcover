@@ -19,6 +19,7 @@ var Card = require('./card');
 var CardCreationMenu = require('./cardCreationMenu');
 var AnalysisMenu = require('./analysisMenu');
 var FileMenu = require('./fileMenu');
+var SignInMenu = require('./signInMenu');
 
 var PCPChart = reactify(require('./pcpChart'), "PCPChart");
 var BoxChart = reactify(require('./boxChart'), "BoxChart");
@@ -35,6 +36,7 @@ var NavItem = BS.NavItem;
 var Button = BS.Button;
 var Glyphicon = BS.Glyphicon;
 var ModalTrigger = BS.ModalTrigger;
+var Input = BS.Input;
 
 
 var Store = {
@@ -288,7 +290,8 @@ module.exports = React.createClass({
 	    "conditions": conditions,
 	    "layout": layout,
 	    "cards": cards,
-	    "subscriptions": subscriptions
+	    "subscriptions": subscriptions,
+		"username": ""
 	};
     },
 
@@ -883,48 +886,50 @@ module.exports = React.createClass({
 	return (
 	    <div className="mainApp">
 
-	      <Navbar brand='Memcover' fixedTop>
-		<ModalTrigger modal={<CardCreationMenu tabs={creationVisMenuTabs} onCreateCard={this.addCard}/>}>
-		  <Button className="navbar-btn pull-right" bsStyle="primary">
-		    <Glyphicon glyph='plus' /> Visualization
-		  </Button>
-		</ModalTrigger>
+			<Navbar brand='Memcover' fixedTop>
+				<SignInMenu className="navbar-btn pull-right"
+					tables={this.state.tables}
+					currentState={self.state}
+					>
+				</SignInMenu>
+				
+				<ModalTrigger modal={<CardCreationMenu tabs={creationVisMenuTabs} onCreateCard={this.addCard}/>}>
+					<Button className="navbar-btn pull-right" bsStyle="primary" style={ {"margin-right":40} }>
+						<Glyphicon glyph='plus' /> Visualization
+					</Button>
+				</ModalTrigger>
 
-		<ModalTrigger modal={<CardCreationMenu tabs={creationFilterMenuTabs} onCreateCard={this.addCard}/>}>
-		  <Button className="navbar-btn pull-right" bsStyle="primary" style={ {"margin-right":10} }>
-		    <Glyphicon glyph='plus' /> Filter
-		  </Button>
-		</ModalTrigger>
+				<ModalTrigger modal={<CardCreationMenu tabs={creationFilterMenuTabs} onCreateCard={this.addCard}/>}>
+					<Button className="navbar-btn pull-right" bsStyle="primary" style={ {"margin-right":10} }>
+						<Glyphicon glyph='plus' /> Filter
+					</Button>
+				</ModalTrigger>
 
-                <AnalysisMenu className="navbar-btn pull-right"
-			style={ {"margin-right":10} }
-			tables={this.state.tables}
-			onExport={function(table){Store.exportTable(table, table.name, true);}}
-			onOpen={self.loadAnalysis}
-	        onSave={self.saveAnalysis.bind(self, self.state)}
-			>
-
-		</AnalysisMenu>
-		    	
+				<AnalysisMenu className="navbar-btn pull-right"
+					style={ {"margin-right":10} }
+					tables={this.state.tables}
+					onExport={function(table){Store.exportTable(table, table.name, true);}}
+					onOpen={self.loadAnalysis}
+					onSave={self.saveAnalysis.bind(self, self.state)}
+					>
+				</AnalysisMenu>
+						
 				<FileMenu className="navbar-btn pull-right"
-			style={ {"margin-right":10} }
-			tables={this.state.tables}
-			onExportCsv={function(table){Store.exportTable(table, table.dataset_name, false);}}
-			onExportExcel={function(table){Store.exportTable(table, table.dataset_name, true);}}
-			onExportSchema={self.exportSchema.bind(self)}
-			onLoadData={self.loadData}
-			onImportData={self.importData}
-			onImportSchema={self.importSchema}
-			onSaveSchema={self.saveSchema}
-			onSaveData={self.saveData}
-			onExportData={self.exportDataLocal.bind(self, self.state)}
-			currentState={self.state}
-			>
-
-		</FileMenu>
-
-	      </Navbar>
-
+					style={ {"margin-right":10} }
+					tables={this.state.tables}
+					onExportCsv={function(table){Store.exportTable(table, table.dataset_name, false);}}
+					onExportExcel={function(table){Store.exportTable(table, table.dataset_name, true);}}
+					onExportSchema={self.exportSchema.bind(self)}
+					onLoadData={self.loadData}
+					onImportData={self.importData}
+					onImportSchema={self.importSchema}
+					onSaveSchema={self.saveSchema}
+					onSaveData={self.saveData}
+					onExportData={self.exportDataLocal.bind(self, self.state)}
+					currentState={self.state}
+					>
+				</FileMenu>
+			</Navbar>
 
 	      <ReactGridLayout className="layout"
 		      layout={layout}

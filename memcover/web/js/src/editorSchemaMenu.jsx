@@ -121,10 +121,10 @@ return {
 							<div className="form-group" style={{"verticalAlign":"middle"}}>
 								<div className="btn btn-xs btn-default" aria-hidden="true">
 									<span className="icon glyphicon glyphicon-move"/>
-									</div>
-									<div className="btn btn-xs btn-default" aria-hidden="true" onClick={function(ev){ self.onRemoveItem(attr); delete self.state.originalNames[attr]; delete changedSchema.attributes[attr]; if(changedSchema.order.indexOf(attr) > -1) changedSchema.order.splice(changedSchema.order.indexOf(attr), 1);; console.log("changedSchema", changedSchema); }}>
+								</div>
+								<div className="btn btn-xs btn-default" aria-hidden="true" onClick={function(ev){ self.onRemoveItem(attr); delete self.state.originalNames[attr]; delete changedSchema.attributes[attr]; if(changedSchema.order.indexOf(attr) > -1) changedSchema.order.splice(changedSchema.order.indexOf(attr), 1);; console.log("changedSchema", changedSchema); }}>
 										<span className="icon glyphicon glyphicon-remove"/>
-									</div>
+								</div>
 									<input type="text" id={attr} old={attr} defaultValue={attr} style={{"width":"50%", "min-width":"20%", "height":"30px", "marginLeft":"5%"}} onChange={function (ev){
 												var oldName = ev.target.old; var newName = ev.target.value;
 												ev.target.old = newName;

@@ -49,9 +49,7 @@ module.exports = React.createClass({
 				bsStyle={this.props.bsStyle}
 				title={this.props.label}>
 
-				{/*<ModalTrigger modal={<ImportSchemaMenu onImportSchema={this.props.onImportSchema}/>}>*/}
-					<BS.MenuItem onSelect={importFileMenuData}> Import files </BS.MenuItem>
-				{/*</ModalTrigger>*/}
+				<BS.MenuItem onSelect={importFileMenuData}> Import files </BS.MenuItem>
 				<input style={{"display":"none"}} type="file" multiple="multiple" accept=".csv, .xlsx, .xls, .json" ref="importFileData" onChange={onImportData}/>
 				
 				<ModalTrigger modal={<SelectFileMenu onLoadData={this.props.onLoadData} onSaveSchema={this.props.onSaveSchema} currentState={this.props.currentState}/>}>
