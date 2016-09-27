@@ -135,6 +135,9 @@ class TableSchema(DataSetSchema):
 
     def rename_attribute(self, old_name, new_name):
         '''Renames the attribute'''
+        print old_name.encode('utf-8'), new_name.encode('utf-8')
+        old_name = old_name.encode('utf-8')
+
         self._schema['attributes'][new_name] = self._schema['attributes'][old_name]
         del self._schema['attributes'][old_name]
         self._schema[self._schema['order'].index(old_name)] = new_name

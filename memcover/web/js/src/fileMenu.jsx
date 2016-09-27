@@ -48,27 +48,29 @@ module.exports = React.createClass({
 				style={this.props.style} 
 				bsStyle={this.props.bsStyle}
 				title={this.props.label}>
-
-				<BS.MenuItem onSelect={importFileMenuData}> Import files </BS.MenuItem>
-				<input style={{"display":"none"}} type="file" multiple="multiple" accept=".csv, .xlsx, .xls, .json" ref="importFileData" onChange={onImportData}/>
-				
+	
 				<ModalTrigger modal={<SelectFileMenu onLoadData={this.props.onLoadData} onSaveSchema={this.props.onSaveSchema} currentState={this.props.currentState}/>}>
-					<BS.MenuItem> Open </BS.MenuItem>		  
+					<BS.MenuItem> Open from server</BS.MenuItem>		  
 				</ModalTrigger>
 				
 				<ModalTrigger modal={<SaveDataMenu onSaveData={this.props.onSaveData} currentState={this.props.currentState}/>}>
-					<BS.MenuItem> Save dataset </BS.MenuItem>		  
+					<BS.MenuItem> Save on server </BS.MenuItem>		  
 				</ModalTrigger>
 
 				<ModalTrigger modal={<EditorSchemaMenu datasetName={this.props.currentState.tables[tableName].dataset_name} onSaveSchema={this.props.onSaveSchema} currentState={this.props.currentState}/>}>
-					<BS.MenuItem> Edit schema </BS.MenuItem>		  
+					<BS.MenuItem> Edit data schema </BS.MenuItem>		  
 				</ModalTrigger>
+ 				
+				 <li className="divider"></li>
 
+				<BS.MenuItem onSelect={importFileMenuData}> Import local files to server </BS.MenuItem>
+				<input style={{"display":"none"}} type="file" multiple="multiple" accept=".csv, .xlsx, .xls, .json" ref="importFileData" onChange={onImportData}/>
+			
 				{
 				_.values(this.props.tables).map(function(table, i) {
 					return(
 								<BS.MenuItem eventKey={i} onSelect={ onExportCsv.bind(this, table) }> 
-					Export to CSV
+					Export data to local (csv)
 					</BS.MenuItem>
 					)
 				})
@@ -77,12 +79,12 @@ module.exports = React.createClass({
 				_.values(this.props.tables).map(function(table, i) {
 					return(
 								<BS.MenuItem eventKey={i} onSelect={ onExportExcel.bind(this, table) }> 
-					Export to Excel
+					Export data to local (xlsx)
 					</BS.MenuItem>
 					)
 				})
 				}
-				<BS.MenuItem onSelect={onExportSchema}> Export schema </BS.MenuItem>
+				<BS.MenuItem onSelect={onExportSchema}> Export current schema (json) </BS.MenuItem>
             </BS.DropdownButton>
 	)
     }

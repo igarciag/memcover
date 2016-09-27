@@ -14,9 +14,9 @@ var TabPane = BS.TabPane;
 var Input = BS.Input;
 var Col = BS.Col;
 
-
 var CardCreationMenu = React.createClass({
     getInitialState: function() {
+
 	return {
 	    activeTab: this.props.tabs[0].kind
 	};
@@ -24,7 +24,7 @@ var CardCreationMenu = React.createClass({
 
     handleCreateCard: function() {
 
-	var config = this.refs[this.state.activeTab].getConfig();
+	var config = this.refs[this.state.activeTab].getConfig();	
 	var card = {kind:this.state.activeTab, title: config.table, config: config};
 
 	switch (this.state.activeTab) {
@@ -44,7 +44,10 @@ var CardCreationMenu = React.createClass({
 		break;
 	    case "stats":
 		card.title = _.capitalize(config.attr);
-		break;		
+		break;
+		case "image":
+		card.title = _.capitalize(config.attr);
+		break;
 	}
 
 	this.props.onRequestHide();
@@ -56,7 +59,9 @@ var CardCreationMenu = React.createClass({
     },
 
     render: function(){
-	var tabs = this.props.tabs
+	var tabs = this.props.tabs;
+	var onSaveImage = this.props.onSaveImage;
+
 
 	return (
 	    <Modal {...this.props} bsSize="large" title="Add new card" animation={true}>
@@ -80,6 +85,9 @@ var CardCreationMenu = React.createClass({
 			      case "regions":
 				  tabNode = <RegionsMenu ref={tab.kind} options={tab.options}/>;
 				  break;
+				  case "image":
+				  tabNode = <ImageMenu ref={tab.kind} options={tab.options} onSaveImage={onSaveImage}/>;
+				  break;
 			      case "columnFilter":
 				  tabNode = <ColumnFilterMenu ref={tab.kind} options={tab.options}/>;
 				  break;
@@ -101,7 +109,7 @@ var CardCreationMenu = React.createClass({
 	      </div>
 	      <div className='modal-footer'>
 		<Button onClick={this.props.onRequestHide}>Close</Button>
-		<Button onClick={this.handleCreateCard}  bsStyle="primary">Create Card</Button>
+		<Button onClick={this.handleCreateCard} id="idCreateCard" bsStyle="primary">Create Card</Button>
 	      </div>
 	    </Modal>
 	);
@@ -226,6 +234,87 @@ var RegionsMenu = React.createClass({
     );}
 });
 
+function getFiles(dir){
+	/*var fs = new ActiveXObject("Scripting.FileSystemObject"); 
+	var fileList = [];
+	
+	var files = fs.readdirSync(dir);
+	for(var i in files){
+		if (!files.hasOwnProperty(i)) continue;
+		var name = dir+'/'+files[i];
+		if (!fs.statSync(name).isDirectory()){
+			fileList.push(name);
+		}
+	}
+	return fileList;*/
+	return ["hipo_foto.svg", "image1.jpg", "image2.jpg", "image3.jpg", "hipo_foto.svg", "image1.jpg", "image2.jpg", "image3.jpg"]
+}
+
+var ImageMenu = React.createClass({
+    getConfig: function() { return {src: this.state.src, filename: this.state.filename}; },
+    saveImageMenuData: function(){
+		React.findDOMNode(this.refs.saveImageData).click();
+    },
+	eventFire: function(el, etype){
+		if (el.fireEvent) {
+			el.fireEvent('on' + etype);
+		} else {
+			var evObj = document.createEvent('Events');
+			evObj.initEvent(etype, true, false);
+			el.dispatchEvent(evObj);
+		}
+	},
+    render: function() {
+		var saveImageMenuData = this.saveImageMenuData;
+		var onSaveImage = this.props.onSaveImage;
+		
+		var oldId;
+		var self = this;
+		var size = "120px";
+		var idImages = 0;
+		return ( 
+			<div style={{"text-align": "center"}}>
+				{
+					getFiles("assets/images").map(function(filename, i){
+						var srcFile = "assets/images/"+filename;
+						idImages = i;
+						return(
+							<img height={size} style={{margin: "20px auto 0 auto", padding:"5px"}} src={srcFile} id={"img"+i} onClick={function(ev){
+								var newEl = document.getElementById(ev.target.id);
+								var oldEl = document.getElementById(oldId);
+								if(oldEl) oldEl.style.border = '0px';
+								newEl.style.border = '5px solid #2E64FE';
+								oldId = ev.target.id;
+								self.state={src: srcFile, filename: filename};
+								}}/>
+						); 
+					})
+				}
+
+				<label className="btn btn-primary btn-file" onSelect={saveImageMenuData} style={{marginLeft: "5px", marginBottom: "5px", verticalAlign: "bottom"}}>
+					<span className="glyphicon glyphicon-folder-open"></span> <span style={{marginLeft: "3px"}}> Select local image </span>
+					<input type="file" id="imgInput" accept="image/png, image/jpeg, image/gif" style={{"display": "none"}} ref="saveImageData" onChange={function(ev){ 
+						//onSaveImage(ev);
+						var f = ev.target.files[0];
+						var reader = new FileReader();
+						reader.onload = (function(theFile) {
+							return function (e) {
+								var ext = theFile.name.split('.')[theFile.name.split('.').length - 1];
+								var res = this.result;
+
+								self.state={src: res, filename: theFile.name};
+								self.eventFire(document.getElementById('idCreateCard'), 'click'); //Launch onClick event of "Create Card" button
+							};
+						})(f);
+						reader.readAsDataURL(f);
+					}}/>
+				</label>
+
+				
+
+			</div>
+    	);}
+});
 
 var DataTableMenu = React.createClass({
 
@@ -249,9 +338,11 @@ var DataTableMenu = React.createClass({
 //	var columns = this.props.options.columns[ this.state.table ].map(
 //	    function(column, i){return {name: column.name, included: self.refs["col"+i].getChecked()};})
 	var columns = this.state.columns[this.state.table];
+	var selectedColumns = _.pluck(_.filter(columns, 'included'), 'name');
 	return {
 	    table: this.state.table,
-	    columns: columns
+	    columns: columns,
+		history_columns: selectedColumns
 	};
     },
 
@@ -264,6 +355,12 @@ var DataTableMenu = React.createClass({
 	var options = this.props.options;
 	var columns = this.state.columns[this.state.table];
 	var handleCheck = this.handleCheck.bind(this, this.state.table);
+	
+	if(columns.length <= 1){
+		alert("Please, open a data file\n");
+		return {};
+	}
+
 	return (
             <div>
 	      <form>
@@ -292,7 +389,7 @@ var ScatterMenu = React.createClass({
 	var table = this.props.table || this.props.options.tables[0];
 	
 	if(Object.keys(this.props.options.columns[table]).length <= 1){
-		alert("Please, open or import a data file\n");
+		alert("Please, open a data file\n");
 		return {};
 	}
 

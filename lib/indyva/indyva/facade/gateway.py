@@ -103,6 +103,9 @@ class WSGateway(Gateway):
         if not path.startswith("/hub/"):
             raise Exception("The connection MUST has a path of the from: '/hub/<gateway>'")
         name = [s for s in path.split('/') if s][-1]
+        print name
+        if not name in cls.gateways.keys():
+            name = cls.gateways.keys()[0]
         gateway = cls.gateways[name]
 
         ws = environ['wsgi.websocket']

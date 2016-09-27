@@ -1,5 +1,5 @@
 .card {
-    overflow: hidden;
+    /*overflow: hidden;*/
     text-align: center;
 }
 
@@ -35,7 +35,7 @@
 .card .card-move {
     position:absolute;
     left: 0px;
-    top: 60px;
+    top: 3px;
     z-index: 10;
 }
 

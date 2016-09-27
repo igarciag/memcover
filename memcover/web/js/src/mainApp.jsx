@@ -24,7 +24,7 @@ var SignInMenu = require('./signInMenu');
 var PCPChart = reactify(require('./pcpChart'), "PCPChart");
 var BoxChart = reactify(require('./boxChart'), "BoxChart");
 var ScatterChart = reactify(require('./scatterChart'), "ScatterChart");
-// var ParSetChart = reactify(require('./parsetChart'), "ParSetChart");
+ var ParSetChart = reactify(require('./parsetChart'), "ParSetChart");
 
 /**
  *  Bootstrap requires
@@ -291,7 +291,8 @@ module.exports = React.createClass({
 	    "layout": layout,
 	    "cards": cards,
 	    "subscriptions": subscriptions,
-		"username": ""
+		"username": "",
+		"logged": false
 	};
     },
 
@@ -326,7 +327,7 @@ module.exports = React.createClass({
 
 	importData: function(ev) {
 				var self = this;
-				var when =  __webpack_require__(/*! when */ 5);
+				var when = require("when");
 				var rpc = Context.instance().rpc;
 
 				var files = ev.target.files;
@@ -373,7 +374,7 @@ module.exports = React.createClass({
 
 		importSchema: function(ev) {			
 				var self = this;
-				var when =  __webpack_require__(/*! when */ 5);
+				var when = require("when");
 				var rpc = Context.instance().rpc;
 
 				var files = ev.target.files;
@@ -522,7 +523,7 @@ module.exports = React.createClass({
 
 	saveSchema: function(newSchema, originalNames, datasetName) {
 		var self = this;
-		var when =  __webpack_require__(/*! when */ 5);
+		var when = require("when");
 		var rpc = Context.instance().rpc;
 
 		var tableName = Object.keys(self.state.tables)[0];
@@ -542,7 +543,7 @@ module.exports = React.createClass({
 
 	saveData: function(dataset_name, data, schema) {
 		var self = this;
-		var when =  __webpack_require__(/*! when */ 5);
+		var when = require("when");
 		var rpc = Context.instance().rpc;
 
 		var tableName = Object.keys(self.state.tables)[0];
@@ -562,6 +563,35 @@ module.exports = React.createClass({
 						}
 					);
 			});
+	},
+
+	saveImage: function(ev) {
+		var self = this;
+		var when = require("when");
+		var rpc = Context.instance().rpc;
+
+		var files = ev.target.files;
+			
+		console.log("SAAAVE IMAGEEE");
+			
+		// Check file (or files) selected
+		var f = files[0];
+		var reader = new FileReader();
+
+		reader.onload = (function(theFile) {
+			return function (e) {
+				var ext = theFile.name.split('.')[theFile.name.split('.').length - 1];
+				var res = this.result;
+				console.log("RES:", res);
+				var ret = rpc.call("TableSrv.save_image", [res, theFile.name])
+				.then(function(resp){ if(resp != "OK" && resp != "") alert(resp); /*else cb();*/ });
+				
+				/*function cb() {
+
+				}*/
+			};
+		})(f);
+		reader.readAsDataURL(f);
 	},
 
 	exportDataLocal: function(state) {
@@ -596,7 +626,6 @@ module.exports = React.createClass({
 		var fileName = "joined";
 		if(this.state.tables[tableName].dataset_name && this.state.tables[tableName].dataset_name != null) fileName = this.state.tables[tableName].dataset_name;
 
-		console.log("SCHEAAAAMA:", schema);
 		var schemaToSave = {index: schema.index, attributes: schema.attributes, order: schema.order};
 
 		var blob = new Blob([JSON.stringify(schemaToSave)], {type: "text/plain;charset=utf-8"});
@@ -822,7 +851,11 @@ module.exports = React.createClass({
 	    this.putState("subscriptions", this.state.subscriptions);
 	};
 
-	var component = (<DescriptionStats {...size} description={description} attr={attr}
+	console.log("DESCRIPTION:", description);
+	var orderStats = ["mean", "std", "min", "max", "count", "25%", "50%", "75%"];
+	var sortedDescription = {};
+	for(var i=0; i<orderStats.length; i++) sortedDescription[orderStats[i]] = description[orderStats[i]];
+	var component = (<DescriptionStats {...size} description={sortedDescription} attr={attr}
 			     onMount={linkData.bind(this)}
 			     onUnmount={unlinkData.bind(this)}/>);
 
@@ -871,11 +904,12 @@ module.exports = React.createClass({
 
 	var creationVisMenuTabs = [
 	    { kind: "pcp", title: "Parallel Coordinates Plot", options: { tables: tables, columns: columns } },
-// Unused   { kind: "parset", title: "Parallel Set", options: { tables: tables, categoricalColumns: categoricalColumns, quantitativeColumns: quantitativeColumns} },
+		{ kind: "parset", title: "Parallel Set", options: { tables: tables, categoricalColumns: categoricalColumns, quantitativeColumns: quantitativeColumns} },
 	    { kind: "scatter", title: "Scatter Plot", options: { tables: tables, columns: quantitativeColumns } },
 	    { kind: "box", title: "Box Plot", options: { tables: tables, categoricalColumns: categoricalColumns, quantitativeColumns: quantitativeColumns } },
 	    { kind: "table", title: "Data Table", options: { tables: tables, columns: columns } },
 	    { kind: "stats", title: "Statistics", options: { tables: tables, columns: quantitativeColumns } },
+		//{ kind: "image", title: "Image", options: { tables: tables, columns: columns } }
 	];
 
 	var creationFilterMenuTabs = [
@@ -887,13 +921,14 @@ module.exports = React.createClass({
 	    <div className="mainApp">
 
 			<Navbar brand='Memcover' fixedTop>
+				
 				<SignInMenu className="navbar-btn pull-right"
 					tables={this.state.tables}
 					currentState={self.state}
 					>
 				</SignInMenu>
-				
-				<ModalTrigger modal={<CardCreationMenu tabs={creationVisMenuTabs} onCreateCard={this.addCard}/>}>
+
+				<ModalTrigger modal={<CardCreationMenu tabs={creationVisMenuTabs} onCreateCard={this.addCard} onSaveImage={self.saveImage}/>}>
 					<Button className="navbar-btn pull-right" bsStyle="primary" style={ {"margin-right":40} }>
 						<Glyphicon glyph='plus' /> Visualization
 					</Button>
@@ -944,6 +979,7 @@ module.exports = React.createClass({
 		    /*
 		     * Render all the cards
 		     */
+			
 		 cards.map(function(card){
 		     var component = null;
 		     var menuActions = null;
@@ -952,9 +988,10 @@ module.exports = React.createClass({
 		     switch (card.kind) {
 			 case "pcp":
 			 case "scatter":
+			 case "image":
 			 case "box":
 			     menuActions = [{label: "Save", icon: "save",
-				 action: function(){ downloadSVG(this.getDOMNode().getElementsByTagName("svg")[0]);}}];
+				 action: function(){ downloadSVG(this.getDOMNode().getElementsByTagName("svg")[0]); }}];
 			     //	 {label: "Edit", icon: "pencil", action: function(){}}
 		     }
 
@@ -965,26 +1002,31 @@ module.exports = React.createClass({
 			     component = (<DataTable {...size} {...card.config}
 				 rows={self.state.tables[card.config.table].data} columnNames={columnNames}/>);
 			     break;
-			 case "pcp":
-			     var columnNames = _.pluck(_.filter(card.config.columns, 'included'), 'name');
-			     var attributes = _.map(columnNames, function(c){
-                     return self.state.tables[card.config.table].schema.attributes[c];});
+			case "image":
+			 	//component=(<img src={card.attr}/>);
+			 	component=(<div> <label> {card.config.filename} </label> <img src={card.config.src} {...size}/> </div>);
+			 	break;
+			case "pcp":
+			    var columnNames = _.pluck(_.filter(card.config.columns, 'included'), 'name');
+			    var attributes = _.map(columnNames, function(c){
+                	return self.state.tables[card.config.table].schema.attributes[c];});
+				var allColumnNames = _.pluck(card.config.columns, 'name');
 
-			     component = <PCPChart {...size}
-				 data={self.state.tables[card.config.table].data}
-				 margin={{top: 50, right: 40, bottom: 10, left: 40}}
-				 attributes={attributes}
-				 index={self.state.tables[card.config.table].schema.index}
-				 onBrush={function(extent) {/*console.log(extent);*/ }}
-				 onAttributeSort={ function(attributes){
-				     var columns = _.map(attributes, function(attr){return {name: attr.name, included: true};});
-				     self.putState( ["cards", card.key, "config", "columns"], columns );}
-				 }
-				 >
-			     </PCPChart>;
+			    component = <PCPChart {...size}
+				data={self.state.tables[card.config.table].data}
+				margin={{top: 50, right: 40, bottom: 10, left: 40}}
+				attributes={attributes}
+				index={self.state.tables[card.config.table].schema.index}
+				onBrush={function(extent) {/*console.log(extent);*/ }}
+				onAttributeSort={ function(attributes){
+				    var columns = _.map(attributes, function(attr){return {name: attr.name, included: true};});
+				    self.putState( ["cards", card.key, "config", "columns"], columns );}
+				}
+				>
+			    </PCPChart>;
 
-			     break;
-			 case "scatter":
+			    break;
+			case "scatter":
 			     var data = [];
 			     // Filter NaNs
 			     _.reduce(self.state.tables[card.config.table].data, function(acc, row) {
@@ -1058,8 +1100,8 @@ module.exports = React.createClass({
 		     return (
 			 <div key={card.key}>
 			   <Card key={card.key} onClose={self.removeCard.bind(self, card.key)}
-			         title={card.title} size={size} menuActions={menuActions}>
-			     {component}
+			        title={card.title} size={size} menuActions={menuActions} columns={columnNames} allColumns={allColumnNames} state={self.state} cardId={card.key} parent={self}>
+			     	{component}
 			   </Card>
 			 </div>
 		     );

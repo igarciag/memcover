@@ -103,8 +103,10 @@ module.exports = React.createClass({
 			<Modal {...this.props} bsSize="large" title="Open server files" animation={true}>
 				<div className='modal-body'>
 					<form id="openAddForm" style={{"position": "relative", "width": "50%", "height":"80%", "margin": "0 auto", "left": "0px", "right": "0px"}}>
-						<input type="radio" name="radioSelect" id="rOpen" defaultChecked={true}> Open new </input>
-						<input type="radio" name="radioSelect" id="rAdd" defaultChecked={false} style={{"marginLeft": "10px"}}> Add to current</input>
+						<input type="radio" name="radioSelect" id="rOpen" value="Open" defaultChecked={true}/>
+						<label for="rOpen" title="Open new data removing current dataset">Open new</label>
+						<input type="radio" name="radioSelect" id="rAdd" value="Add" defaultChecked={false} style={{"marginLeft": "15px"}}/>
+						<label for="rAdd" title="Add data to current dataset">Add to current</label>
 					</form>
 					<div style={{position: "relative", width: "50%", margin: "0 auto"}}>
 						<h4 style={{"margin": "20px 0 10px 0"}}> Data files: </h4>
@@ -116,7 +118,7 @@ module.exports = React.createClass({
 				</div>
 				<div className='modal-footer'>
 					<Button onClick={this.props.onHide}> Close </Button>
-					<ModalTrigger modal={<EditorSchemaMenu onSaveSchema={this.props.onSaveSchema} currentState={this.props.currentState} propsSelectFile={this.props} selected={document.getElementsByTagName('select')[0]}/>}>
+					<ModalTrigger modal={<EditorSchemaMenu onSaveSchema={this.props.onSaveSchema} currentState={this.props.currentState} propsSelectFile={this.props} selected={document.getElementById('selData')}/>}>
 						<Button onClick={function(ev) {
 							var open = document.getElementById('rOpen').checked;
 							var selected = [];

@@ -48,6 +48,7 @@ class TableService(INamed):
         dispatcher.add_method(self.save_schema)
         dispatcher.add_method(self.save_data)
         dispatcher.add_method(self.set_data)
+        dispatcher.add_method(self.save_image)
         # TableView properties
         dispatcher.add_method(partial(self._proxy_property, 'name'), 'name')
         dispatcher.add_method(partial(self._proxy_property, 'index'), 'index')
@@ -337,10 +338,14 @@ class TableService(INamed):
 
         table._schema = TableSchema(schema['attributes'], schema['index'], schema['order'])
 
-        #from pprint import pprint
-        #pprint(table.find_one())
-        #print "==================================================="
-        #print "==================================================="
-        #print "==================================================="
         return "OK"
         
+    def save_image(self, datacontent, filename): # Save a edited schema
+        global data_dir
+        import base64
+        imgdata = base64.b64decode(datacontent.split(',')[-1])
+
+        with open(data_dir+"/images/"+filename, "w") as image_file:
+            image_file.write(imgdata)
+    
+        return "OK"

@@ -2718,7 +2718,7 @@
 	var PCPChart = reactify(__webpack_require__(211), "PCPChart");
 	var BoxChart = reactify(__webpack_require__(212), "BoxChart");
 	var ScatterChart = reactify(__webpack_require__(214), "ScatterChart");
-	// var ParSetChart = reactify(require('./parsetChart'), "ParSetChart");
+	 var ParSetChart = reactify(__webpack_require__(216), "ParSetChart");
 
 	/**
 	 *  Bootstrap requires
@@ -2985,7 +2985,8 @@
 		    "layout": layout,
 		    "cards": cards,
 		    "subscriptions": subscriptions,
-			"username": ""
+			"username": "",
+			"logged": false
 		};
 	    },
 
@@ -3020,7 +3021,7 @@
 
 		importData: function(ev) {
 					var self = this;
-					var when =  __webpack_require__(/*! when */ 5);
+					var when = __webpack_require__(3);
 					var rpc = Context.instance().rpc;
 
 					var files = ev.target.files;
@@ -3067,7 +3068,7 @@
 
 			importSchema: function(ev) {			
 					var self = this;
-					var when =  __webpack_require__(/*! when */ 5);
+					var when = __webpack_require__(3);
 					var rpc = Context.instance().rpc;
 
 					var files = ev.target.files;
@@ -3216,7 +3217,7 @@
 
 		saveSchema: function(newSchema, originalNames, datasetName) {
 			var self = this;
-			var when =  __webpack_require__(/*! when */ 5);
+			var when = __webpack_require__(3);
 			var rpc = Context.instance().rpc;
 
 			var tableName = Object.keys(self.state.tables)[0];
@@ -3236,7 +3237,7 @@
 
 		saveData: function(dataset_name, data, schema) {
 			var self = this;
-			var when =  __webpack_require__(/*! when */ 5);
+			var when = __webpack_require__(3);
 			var rpc = Context.instance().rpc;
 
 			var tableName = Object.keys(self.state.tables)[0];
@@ -3256,6 +3257,35 @@
 							}
 						);
 				});
+		},
+
+		saveImage: function(ev) {
+			var self = this;
+			var when = __webpack_require__(3);
+			var rpc = Context.instance().rpc;
+
+			var files = ev.target.files;
+				
+			console.log("SAAAVE IMAGEEE");
+				
+			// Check file (or files) selected
+			var f = files[0];
+			var reader = new FileReader();
+
+			reader.onload = (function(theFile) {
+				return function (e) {
+					var ext = theFile.name.split('.')[theFile.name.split('.').length - 1];
+					var res = this.result;
+					console.log("RES:", res);
+					var ret = rpc.call("TableSrv.save_image", [res, theFile.name])
+					.then(function(resp){ if(resp != "OK" && resp != "") alert(resp); /*else cb();*/ });
+					
+					/*function cb() {
+
+					}*/
+				};
+			})(f);
+			reader.readAsDataURL(f);
 		},
 
 		exportDataLocal: function(state) {
@@ -3290,7 +3320,6 @@
 			var fileName = "joined";
 			if(this.state.tables[tableName].dataset_name && this.state.tables[tableName].dataset_name != null) fileName = this.state.tables[tableName].dataset_name;
 
-			console.log("SCHEAAAAMA:", schema);
 			var schemaToSave = {index: schema.index, attributes: schema.attributes, order: schema.order};
 
 			var blob = new Blob([JSON.stringify(schemaToSave)], {type: "text/plain;charset=utf-8"});
@@ -3516,7 +3545,11 @@
 		    this.putState("subscriptions", this.state.subscriptions);
 		};
 
-		var component = (React.createElement(DescriptionStats, React.__spread({},  size, {description: description, attr: attr, 
+		console.log("DESCRIPTION:", description);
+		var orderStats = ["mean", "std", "min", "max", "count", "25%", "50%", "75%"];
+		var sortedDescription = {};
+		for(var i=0; i<orderStats.length; i++) sortedDescription[orderStats[i]] = description[orderStats[i]];
+		var component = (React.createElement(DescriptionStats, React.__spread({},  size, {description: sortedDescription, attr: attr, 
 				     onMount: linkData.bind(this), 
 				     onUnmount: unlinkData.bind(this)})));
 
@@ -3565,11 +3598,12 @@
 
 		var creationVisMenuTabs = [
 		    { kind: "pcp", title: "Parallel Coordinates Plot", options: { tables: tables, columns: columns } },
-	// Unused   { kind: "parset", title: "Parallel Set", options: { tables: tables, categoricalColumns: categoricalColumns, quantitativeColumns: quantitativeColumns} },
+			{ kind: "parset", title: "Parallel Set", options: { tables: tables, categoricalColumns: categoricalColumns, quantitativeColumns: quantitativeColumns} },
 		    { kind: "scatter", title: "Scatter Plot", options: { tables: tables, columns: quantitativeColumns } },
 		    { kind: "box", title: "Box Plot", options: { tables: tables, categoricalColumns: categoricalColumns, quantitativeColumns: quantitativeColumns } },
 		    { kind: "table", title: "Data Table", options: { tables: tables, columns: columns } },
 		    { kind: "stats", title: "Statistics", options: { tables: tables, columns: quantitativeColumns } },
+			//{ kind: "image", title: "Image", options: { tables: tables, columns: columns } }
 		];
 
 		var creationFilterMenuTabs = [
@@ -3581,13 +3615,14 @@
 		    React.createElement("div", {className: "mainApp"}, 
 
 				React.createElement(Navbar, {brand: "Memcover", fixedTop: true}, 
+					
 					React.createElement(SignInMenu, {className: "navbar-btn pull-right", 
 						tables: this.state.tables, 
 						currentState: self.state
 						}
 					), 
-					
-					React.createElement(ModalTrigger, {modal: React.createElement(CardCreationMenu, {tabs: creationVisMenuTabs, onCreateCard: this.addCard})}, 
+
+					React.createElement(ModalTrigger, {modal: React.createElement(CardCreationMenu, {tabs: creationVisMenuTabs, onCreateCard: this.addCard, onSaveImage: self.saveImage})}, 
 						React.createElement(Button, {className: "navbar-btn pull-right", bsStyle: "primary", style:  {"margin-right":40} }, 
 							React.createElement(Glyphicon, {glyph: "plus"}), " Visualization"
 						)
@@ -3638,6 +3673,7 @@
 			    /*
 			     * Render all the cards
 			     */
+				
 			 cards.map(function(card){
 			     var component = null;
 			     var menuActions = null;
@@ -3646,9 +3682,10 @@
 			     switch (card.kind) {
 				 case "pcp":
 				 case "scatter":
+				 case "image":
 				 case "box":
 				     menuActions = [{label: "Save", icon: "save",
-					 action: function(){ downloadSVG(this.getDOMNode().getElementsByTagName("svg")[0]);}}];
+					 action: function(){ downloadSVG(this.getDOMNode().getElementsByTagName("svg")[0]); }}];
 				     //	 {label: "Edit", icon: "pencil", action: function(){}}
 			     }
 
@@ -3659,26 +3696,31 @@
 				     component = (React.createElement(DataTable, React.__spread({},  size,  card.config, 
 					 {rows: self.state.tables[card.config.table].data, columnNames: columnNames})));
 				     break;
-				 case "pcp":
-				     var columnNames = _.pluck(_.filter(card.config.columns, 'included'), 'name');
-				     var attributes = _.map(columnNames, function(c){
-	                     return self.state.tables[card.config.table].schema.attributes[c];});
+				case "image":
+				 	//component=(<img src={card.attr}/>);
+				 	component=(React.createElement("div", null, " ", React.createElement("label", null, " ", card.config.filename, " "), " ", React.createElement("img", React.__spread({src: card.config.src},  size)), " "));
+				 	break;
+				case "pcp":
+				    var columnNames = _.pluck(_.filter(card.config.columns, 'included'), 'name');
+				    var attributes = _.map(columnNames, function(c){
+	                	return self.state.tables[card.config.table].schema.attributes[c];});
+					var allColumnNames = _.pluck(card.config.columns, 'name');
 
-				     component = React.createElement(PCPChart, React.__spread({},  size, 
-					 {data: self.state.tables[card.config.table].data, 
-					 margin: {top: 50, right: 40, bottom: 10, left: 40}, 
-					 attributes: attributes, 
-					 index: self.state.tables[card.config.table].schema.index, 
-					 onBrush: function(extent) {/*console.log(extent);*/ }, 
-					 onAttributeSort:  function(attributes){
-					     var columns = _.map(attributes, function(attr){return {name: attr.name, included: true};});
-					     self.putState( ["cards", card.key, "config", "columns"], columns );}
-					 
-					 })
-				     );
+				    component = React.createElement(PCPChart, React.__spread({},  size, 
+					{data: self.state.tables[card.config.table].data, 
+					margin: {top: 50, right: 40, bottom: 10, left: 40}, 
+					attributes: attributes, 
+					index: self.state.tables[card.config.table].schema.index, 
+					onBrush: function(extent) {/*console.log(extent);*/ }, 
+					onAttributeSort:  function(attributes){
+					    var columns = _.map(attributes, function(attr){return {name: attr.name, included: true};});
+					    self.putState( ["cards", card.key, "config", "columns"], columns );}
+					
+					})
+				    );
 
-				     break;
-				 case "scatter":
+				    break;
+				case "scatter":
 				     var data = [];
 				     // Filter NaNs
 				     _.reduce(self.state.tables[card.config.table].data, function(acc, row) {
@@ -3752,8 +3794,8 @@
 			     return (
 				 React.createElement("div", {key: card.key}, 
 				   React.createElement(Card, {key: card.key, onClose: self.removeCard.bind(self, card.key), 
-				         title: card.title, size: size, menuActions: menuActions}, 
-				     component
+				        title: card.title, size: size, menuActions: menuActions, columns: columnNames, allColumns: allColumnNames, state: self.state, cardId: card.key, parent: self}, 
+				     	component
 				   )
 				 )
 			     );
@@ -24846,6 +24888,7 @@
 
 	var React = __webpack_require__(1);
 	var _ = __webpack_require__(2);
+	var BS = __webpack_require__(117);
 
 
 	module.exports = React.createClass({displayName: "exports",
@@ -24853,12 +24896,28 @@
 	    render: function() {
 		var self = this;
 		var title = this.props.title;
+		var cardId = this.props.cardId;
+		var state = this.props.state;
+		var parent = this.props.parent;
+
+		function eventFire(el, etype){
+			if (el.fireEvent) {
+				el.fireEvent('on' + etype);
+			} else {
+				var evObj = document.createEvent('Events');
+				evObj.initEvent(etype, true, false);
+				el.dispatchEvent(evObj);
+			}
+		}
 
 		/* var child = React.cloneElement(
 		   React.Children.only(this.props.children),
 		   {width: this.props.width, height: this.props.height}); */
 		var contentSize = {width: this.props.size.width + 17, height: this.props.size.height + 17};
 		var menuActions = this.props.menuActions || [];
+		var columns = this.props.columns || [];
+		var allColumns = this.props.allColumns || [];
+		var historyColumns = state.cards[cardId].config.history_columns;
 
 		if (! _.isEmpty(menuActions)) {
 		    var menu = (
@@ -24877,21 +24936,45 @@
 			)
 		    );
 		}
+
+		if (state.cards[cardId].kind == "pcp") {
+		    var attr = (
+				React.createElement("div", {className: "card-menu btn-group", style: {marginRight:"23px"}}, 
+					React.createElement(BS.DropdownButton, {id: "dropdownmenu", title: React.createElement("span", {className: "glyphicon glyphicon-list"}), style: {maxWidth:"150px"}, bsStyle: "default", bsSize: "xsmall"}, 
+						React.createElement("div", {id: "checklist_attr", style: {maxHeight:(this.props.size.height-30)+"px", maxWidth:"160px", overflowY:"scroll"}}, 
+							React.createElement("a", {href: "#", class: "btn btn-default"}, React.createElement("span", {className: "glyphicon glyphicon-remove", style: {float:"right", color:"gray", marginRight:"5px"}, onClick: function(ev){ eventFire(document.getElementById('dropdownmenu'), 'click'); }})), 
+							_.map(allColumns, function(column, i) {
+									var color = "#555555";
+									var is_history = historyColumns.indexOf(column);
+									if(is_history != -1) color = "#9932CC";
+									if(columns.indexOf(column) != -1){
+										return (React.createElement("li", null, React.createElement("small", null, React.createElement("input", {type: "checkbox", id: column, value: column, checked: true, onChange: function(ev) { state.cards[cardId].config.columns[i].included = ev.target.checked; if(is_history == -1) historyColumns.push(column); parent.forceUpdate(); }}), React.createElement("label", {style: {fontWeight:"normal", color: color}}, " ", column, " "))));
+									}
+									return (React.createElement("li", null, React.createElement("small", null, React.createElement("input", {type: "checkbox", value: column, onChange: function(ev){ state.cards[cardId].config.columns[i].included = ev.target.checked; if(is_history == -1) historyColumns.push(column); parent.forceUpdate(); }}), React.createElement("label", {style: {fontWeight:"normal", color: color}}, " ", column, " "))));
+								})
+							
+						)
+					)
+				)
+		    );
+		}
+
 		return (
-		    React.createElement("div", {className: "card", key: this.props.key}, 
-		      React.createElement("div", {className: "card-header"}, 
-			React.createElement("div", {className: "card-move btn btn-xs btn-default card-anchor glyphicon glyphicon-move", "aria-hidden": "true"}), 
+		    React.createElement("div", {className: "card", id: "card_div", key: this.props.key}, 
+				React.createElement("div", {className: "card-header"}, 
+					React.createElement("div", {className: "card-move btn btn-xs btn-default card-anchor glyphicon glyphicon-move", "aria-hidden": "true"}), 
 
-			React.createElement("span", {className: "h4 card-anchor"}, title), 
+					attr, 
 
-			{menu:menu}, 
-			React.createElement("button", {className: "card-close btn btn-xs btn-default glyphicon glyphicon-remove", "aria-hidden": "true", onClick: this.props.onClose})
+					{menu:menu}, 
 
-		      ), 
-		      React.createElement("div", {className: "card-content", style: contentSize}, 
-			this.props.children
-		      )
-		    )
+					React.createElement("button", {className: "card-close btn btn-xs btn-default glyphicon glyphicon-remove", "aria-hidden": "true", onClick: this.props.onClose})
+
+				), 
+				React.createElement("div", {className: "card-content", style: contentSize}, 
+					this.props.children
+				)
+			)
 		);
 	    }
 	});
@@ -24917,9 +25000,9 @@
 	var Input = BS.Input;
 	var Col = BS.Col;
 
-
 	var CardCreationMenu = React.createClass({displayName: "CardCreationMenu",
 	    getInitialState: function() {
+
 		return {
 		    activeTab: this.props.tabs[0].kind
 		};
@@ -24927,7 +25010,7 @@
 
 	    handleCreateCard: function() {
 
-		var config = this.refs[this.state.activeTab].getConfig();
+		var config = this.refs[this.state.activeTab].getConfig();	
 		var card = {kind:this.state.activeTab, title: config.table, config: config};
 
 		switch (this.state.activeTab) {
@@ -24947,7 +25030,10 @@
 			break;
 		    case "stats":
 			card.title = _.capitalize(config.attr);
-			break;		
+			break;
+			case "image":
+			card.title = _.capitalize(config.attr);
+			break;
 		}
 
 		this.props.onRequestHide();
@@ -24959,7 +25045,9 @@
 	    },
 
 	    render: function(){
-		var tabs = this.props.tabs
+		var tabs = this.props.tabs;
+		var onSaveImage = this.props.onSaveImage;
+
 
 		return (
 		    React.createElement(Modal, React.__spread({},  this.props, {bsSize: "large", title: "Add new card", animation: true}), 
@@ -24983,6 +25071,9 @@
 				      case "regions":
 					  tabNode = React.createElement(RegionsMenu, {ref: tab.kind, options: tab.options});
 					  break;
+					  case "image":
+					  tabNode = React.createElement(ImageMenu, {ref: tab.kind, options: tab.options, onSaveImage: onSaveImage});
+					  break;
 				      case "columnFilter":
 					  tabNode = React.createElement(ColumnFilterMenu, {ref: tab.kind, options: tab.options});
 					  break;
@@ -25004,7 +25095,7 @@
 		      ), 
 		      React.createElement("div", {className: "modal-footer"}, 
 			React.createElement(Button, {onClick: this.props.onRequestHide}, "Close"), 
-			React.createElement(Button, {onClick: this.handleCreateCard, bsStyle: "primary"}, "Create Card")
+			React.createElement(Button, {onClick: this.handleCreateCard, id: "idCreateCard", bsStyle: "primary"}, "Create Card")
 		      )
 		    )
 		);
@@ -25129,6 +25220,87 @@
 	    );}
 	});
 
+	function getFiles(dir){
+		/*var fs = new ActiveXObject("Scripting.FileSystemObject"); 
+		var fileList = [];
+		
+		var files = fs.readdirSync(dir);
+		for(var i in files){
+			if (!files.hasOwnProperty(i)) continue;
+			var name = dir+'/'+files[i];
+			if (!fs.statSync(name).isDirectory()){
+				fileList.push(name);
+			}
+		}
+		return fileList;*/
+		return ["hipo_foto.svg", "image1.jpg", "image2.jpg", "image3.jpg", "hipo_foto.svg", "image1.jpg", "image2.jpg", "image3.jpg"]
+	}
+
+	var ImageMenu = React.createClass({displayName: "ImageMenu",
+	    getConfig: function() { return {src: this.state.src, filename: this.state.filename}; },
+	    saveImageMenuData: function(){
+			React.findDOMNode(this.refs.saveImageData).click();
+	    },
+		eventFire: function(el, etype){
+			if (el.fireEvent) {
+				el.fireEvent('on' + etype);
+			} else {
+				var evObj = document.createEvent('Events');
+				evObj.initEvent(etype, true, false);
+				el.dispatchEvent(evObj);
+			}
+		},
+	    render: function() {
+			var saveImageMenuData = this.saveImageMenuData;
+			var onSaveImage = this.props.onSaveImage;
+			
+			var oldId;
+			var self = this;
+			var size = "120px";
+			var idImages = 0;
+			return ( 
+				React.createElement("div", {style: {"text-align": "center"}}, 
+					
+						getFiles("assets/images").map(function(filename, i){
+							var srcFile = "assets/images/"+filename;
+							idImages = i;
+							return(
+								React.createElement("img", {height: size, style: {margin: "20px auto 0 auto", padding:"5px"}, src: srcFile, id: "img"+i, onClick: function(ev){
+									var newEl = document.getElementById(ev.target.id);
+									var oldEl = document.getElementById(oldId);
+									if(oldEl) oldEl.style.border = '0px';
+									newEl.style.border = '5px solid #2E64FE';
+									oldId = ev.target.id;
+									self.state={src: srcFile, filename: filename};
+									}})
+							); 
+						}), 
+					
+
+					React.createElement("label", {className: "btn btn-primary btn-file", onSelect: saveImageMenuData, style: {marginLeft: "5px", marginBottom: "5px", verticalAlign: "bottom"}}, 
+						React.createElement("span", {className: "glyphicon glyphicon-folder-open"}), " ", React.createElement("span", {style: {marginLeft: "3px"}}, " Select local image "), 
+						React.createElement("input", {type: "file", id: "imgInput", accept: "image/png, image/jpeg, image/gif", style: {"display": "none"}, ref: "saveImageData", onChange: function(ev){ 
+							//onSaveImage(ev);
+							var f = ev.target.files[0];
+							var reader = new FileReader();
+							reader.onload = (function(theFile) {
+								return function (e) {
+									var ext = theFile.name.split('.')[theFile.name.split('.').length - 1];
+									var res = this.result;
+
+									self.state={src: res, filename: theFile.name};
+									self.eventFire(document.getElementById('idCreateCard'), 'click'); //Launch onClick event of "Create Card" button
+								};
+							})(f);
+							reader.readAsDataURL(f);
+						}})
+					)
+
+					
+
+				)
+	    	);}
+	});
 
 	var DataTableMenu = React.createClass({displayName: "DataTableMenu",
 
@@ -25152,9 +25324,11 @@
 	//	var columns = this.props.options.columns[ this.state.table ].map(
 	//	    function(column, i){return {name: column.name, included: self.refs["col"+i].getChecked()};})
 		var columns = this.state.columns[this.state.table];
+		var selectedColumns = _.pluck(_.filter(columns, 'included'), 'name');
 		return {
 		    table: this.state.table,
-		    columns: columns
+		    columns: columns,
+			history_columns: selectedColumns
 		};
 	    },
 
@@ -25167,6 +25341,12 @@
 		var options = this.props.options;
 		var columns = this.state.columns[this.state.table];
 		var handleCheck = this.handleCheck.bind(this, this.state.table);
+		
+		if(columns.length <= 1){
+			alert("Please, open a data file\n");
+			return {};
+		}
+
 		return (
 	            React.createElement("div", null, 
 		      React.createElement("form", null, 
@@ -25195,7 +25375,7 @@
 		var table = this.props.table || this.props.options.tables[0];
 		
 		if(Object.keys(this.props.options.columns[table]).length <= 1){
-			alert("Please, open or import a data file\n");
+			alert("Please, open a data file\n");
 			return {};
 		}
 
@@ -25550,22 +25730,9 @@
 			    bsStyle: this.props.bsStyle, 
 			    title: this.props.label}, 
 
-		      React.createElement(BS.MenuItem, {header: true}, " File "), 
-		      React.createElement(BS.MenuItem, {onSelect: openFileMenu}, " Open Analysis ... "), 
+		      React.createElement(BS.MenuItem, {onSelect: openFileMenu}, " Open analysis "), 
 		      React.createElement("input", {style: {"display":"none"}, type: "file", ref: "openFile", onChange: onOpen}), 
-		      React.createElement(BS.MenuItem, {onSelect: onSave}, " Save Analysis "), 
-
-		      React.createElement(BS.MenuItem, {header: true}, " ", header, " "), 
-		      
-		      
-			  _.values(this.props.tables).map(function(table, i) {
-			      return(
-	                          React.createElement(BS.MenuItem, {eventKey: i, onSelect:  onExport.bind(this, table) }, 
-				  table.name
-				  )
-			      )
-			  })
-		       
+		      React.createElement(BS.MenuItem, {onSelect: onSave}, " Save analysis ")
 	            )
 		)
 	    }
@@ -25627,27 +25794,29 @@
 					style: this.props.style, 
 					bsStyle: this.props.bsStyle, 
 					title: this.props.label}, 
-
-					React.createElement(BS.MenuItem, {onSelect: importFileMenuData}, " Import files "), 
-					React.createElement("input", {style: {"display":"none"}, type: "file", multiple: "multiple", accept: ".csv, .xlsx, .xls, .json", ref: "importFileData", onChange: onImportData}), 
-					
+		
 					React.createElement(ModalTrigger, {modal: React.createElement(SelectFileMenu, {onLoadData: this.props.onLoadData, onSaveSchema: this.props.onSaveSchema, currentState: this.props.currentState})}, 
-						React.createElement(BS.MenuItem, null, " Open ")		  
+						React.createElement(BS.MenuItem, null, " Open from server")		  
 					), 
 					
 					React.createElement(ModalTrigger, {modal: React.createElement(SaveDataMenu, {onSaveData: this.props.onSaveData, currentState: this.props.currentState})}, 
-						React.createElement(BS.MenuItem, null, " Save dataset ")		  
+						React.createElement(BS.MenuItem, null, " Save on server ")		  
 					), 
 
 					React.createElement(ModalTrigger, {modal: React.createElement(EditorSchemaMenu, {datasetName: this.props.currentState.tables[tableName].dataset_name, onSaveSchema: this.props.onSaveSchema, currentState: this.props.currentState})}, 
-						React.createElement(BS.MenuItem, null, " Edit schema ")		  
+						React.createElement(BS.MenuItem, null, " Edit data schema ")		  
 					), 
+	 				
+					 React.createElement("li", {className: "divider"}), 
 
+					React.createElement(BS.MenuItem, {onSelect: importFileMenuData}, " Import local files to server "), 
+					React.createElement("input", {style: {"display":"none"}, type: "file", multiple: "multiple", accept: ".csv, .xlsx, .xls, .json", ref: "importFileData", onChange: onImportData}), 
+				
 					
 					_.values(this.props.tables).map(function(table, i) {
 						return(
 									React.createElement(BS.MenuItem, {eventKey: i, onSelect:  onExportCsv.bind(this, table) }, 
-						"Export to CSV"
+						"Export data to local (csv)"
 						)
 						)
 					}), 
@@ -25656,12 +25825,12 @@
 					_.values(this.props.tables).map(function(table, i) {
 						return(
 									React.createElement(BS.MenuItem, {eventKey: i, onSelect:  onExportExcel.bind(this, table) }, 
-						"Export to Excel"
+						"Export data to local (xlsx)"
 						)
 						)
 					}), 
 					
-					React.createElement(BS.MenuItem, {onSelect: onExportSchema}, " Export schema ")
+					React.createElement(BS.MenuItem, {onSelect: onExportSchema}, " Export current schema (json) ")
 	            )
 		)
 	    }
@@ -25778,8 +25947,10 @@
 				React.createElement(Modal, React.__spread({},  this.props, {bsSize: "large", title: "Open server files", animation: true}), 
 					React.createElement("div", {className: "modal-body"}, 
 						React.createElement("form", {id: "openAddForm", style: {"position": "relative", "width": "50%", "height":"80%", "margin": "0 auto", "left": "0px", "right": "0px"}}, 
-							React.createElement("input", {type: "radio", name: "radioSelect", id: "rOpen", defaultChecked: true}, " Open new "), 
-							React.createElement("input", {type: "radio", name: "radioSelect", id: "rAdd", defaultChecked: false, style: {"marginLeft": "10px"}}, " Add to current")
+							React.createElement("input", {type: "radio", name: "radioSelect", id: "rOpen", value: "Open", defaultChecked: true}), 
+							React.createElement("label", {for: "rOpen", title: "Open new data removing current dataset"}, "Open new"), 
+							React.createElement("input", {type: "radio", name: "radioSelect", id: "rAdd", value: "Add", defaultChecked: false, style: {"marginLeft": "15px"}}), 
+							React.createElement("label", {for: "rAdd", title: "Add data to current dataset"}, "Add to current")
 						), 
 						React.createElement("div", {style: {position: "relative", width: "50%", margin: "0 auto"}}, 
 							React.createElement("h4", {style: {"margin": "20px 0 10px 0"}}, " Data files: "), 
@@ -25791,7 +25962,7 @@
 					), 
 					React.createElement("div", {className: "modal-footer"}, 
 						React.createElement(Button, {onClick: this.props.onHide}, " Close "), 
-						React.createElement(ModalTrigger, {modal: React.createElement(EditorSchemaMenu, {onSaveSchema: this.props.onSaveSchema, currentState: this.props.currentState, propsSelectFile: this.props, selected: document.getElementsByTagName('select')[0]})}, 
+						React.createElement(ModalTrigger, {modal: React.createElement(EditorSchemaMenu, {onSaveSchema: this.props.onSaveSchema, currentState: this.props.currentState, propsSelectFile: this.props, selected: document.getElementById('selData')})}, 
 							React.createElement(Button, {onClick: function(ev) {
 								var open = document.getElementById('rOpen').checked;
 								var selected = [];
@@ -25911,7 +26082,6 @@
 			var selected = this.props.selected;
 			var currentState = this.props.currentState;
 			var tableName = Object.keys(this.props.currentState.tables)[0];
-			console.log("THISPROPS:", this.props.currentState);
 			var datasetName = this.props.currentState.tables[tableName].dataset_name;
 			if(!datasetName || datasetName == null) datasetName = "Unknown";
 			var new_cols = this.props.currentState.tables[tableName].new_cols;
@@ -25924,8 +26094,6 @@
 			var attributeTypes = ["Categorical", "Quantitative", "Ordinal"];
 			var changedSchema = currentSchema;
 			
-			console.log("CURRENTSTATE:", this.state);
-
 			this.state.items = this.onChangeState(currentOrder);
 
 			function createElement(el) {
@@ -25970,14 +26138,15 @@
 				);
 			}
 
-			return (
-					React.createElement(Modal, React.__spread({},  this.props, {bsSize: "large", title: "Edit schema", animation: true}), 
-						React.createElement("div", {className: "modal-body"}, 
+			//if(currentAttributes.length > 0) {
+				var selectAnyFile = true;
+				var contentMenu = (
+						React.createElement("div", null, 
 							React.createElement("div", {style: {"position": "relative", "width": "40%", "margin": "0 auto", "marginBottom": "20px"}}, 
 								React.createElement("label", null, " Dataset name: "), 
 								React.createElement(Input, {type: "text", defaultValue: datasetName, onChange: function (ev){ datasetName = ev.target.value; }})
 							), 
-							React.createElement("div", {style: {"position": "relative", "width": "65%", "margin": "0 auto", "marginBottom": "20px"}}, 
+							React.createElement("div", {style: {"position": "relative", "width": "65%", "margin": "0 auto", "marginBottom": "20px", /*maxHeight: calcHeight+"px", overflowX: "hidden", overflowY: "scroll"*/}}, 
 								React.createElement(ResponsiveReactGridLayout, React.__spread({onBreakpointChange: this.onBreakpointChange, isResizable: false, onLayoutChange: function(newLayout)  {
 										console.log("onLayoutChange", newLayout);
 										self.setState({layout: newLayout});
@@ -25988,12 +26157,26 @@
 										_.map(this.state.items, createElement)
 								)
 							)	
+						)	
+					);
+			/*} else {
+				var selectAnyFile = false;
+				var contentMenu = (
+						<div>
+							<h4> Please, select some files to open data </h4>
+						</div>
+				);
+			}*/
+
+			var calcHeight = screen.height * 0.6;
+			return (
+					React.createElement(Modal, React.__spread({},  this.props, {bsSize: "large", title: "Edit schema", animation: true}), 
+						React.createElement("div", {className: "modal-body"}, 
+							contentMenu
 						), 	
 						React.createElement("div", {className: "modal-footer"}, 
 							React.createElement(Button, {onClick: this.props.onHide}, " Cancel "), 
 							React.createElement(Button, {onClick: function(ev) {
-								console.log("OK", changedSchema);
-
 								var copyChangedSchema = JSON.parse(JSON.stringify(changedSchema));
 								for(var key in self.state.originalNames){ //key is the old name, self.state.originalNames[key] is the new name
 									if(self.state.originalNames[key] == ""){ alert("Empty attribute names not allowed"); changedSchema = copyChangedSchema; return; }
@@ -26007,8 +26190,6 @@
 									index = changedSchema.quantitative_attrs.indexOf(key);
 									if(index > -1) changedSchema.quantitative_attrs[index] = self.state.originalNames[key];
 								}
-
-								console.log("OK1", changedSchema);
 								
 								// Update order with new names (from original names)
 								for(var h=0; h<changedSchema.order.length; h++){
@@ -26019,7 +26200,7 @@
 								// Save the edited schema
 								onSaveSchema(changedSchema, self.state.originalNames, datasetName);
 
-								if (propsSelectFile) propsSelectFile.onHide();							
+								if (propsSelectFile && selectAnyFile) propsSelectFile.onHide();							
 								self.props.onHide();
 							}, bsStyle: "primary"}, " OK ")
 		      			)
@@ -26196,13 +26377,28 @@
 		var c_username = getCookie("username");
 		var self = this;
 		
-		return (
-
+		if(currentState.logged == true) {
+			this.props.label = "Hi, "+currentState.username;
+			return (
 				React.createElement(BS.DropdownButton, {className: this.props.className, 
 					style: this.props.style, 
 					bsStyle: this.props.bsStyle, 
 					title: this.props.label}, 
-					React.createElement("div", {style: {"width": "250px"}}, 
+					React.createElement(BS.MenuItem, null, " Change password "), 
+					React.createElement(BS.MenuItem, null, " Preferences "), 
+					React.createElement(BS.MenuItem, null, " ... "), 
+					React.createElement("li", {className: "divider"}), 
+					React.createElement(BS.MenuItem, null, " Close session ")
+	            )
+			)
+		} else {
+			return (
+
+				React.createElement(BS.DropdownButton, {id: "login_dropdown", className: this.props.className, 
+					style: this.props.style, 
+					bsStyle: this.props.bsStyle, 
+					title: this.props.label}, 
+					React.createElement("div", {id: "login_div", style: {"width": "250px"}}, 
 							React.createElement("div", {style: {"position": "relative", "width": "80%", "margin": "0 auto"}}, 
 								React.createElement("div", {className: "input-group", style: {"marginTop":"15px"}}, 
 									React.createElement("span", {className: "input-group-addon"}, 
@@ -26220,27 +26416,36 @@
 									React.createElement("input", {id: "remember", style: {"float": "left", "marginRight": "10px"}, type: "checkbox", value: "1"}), 
 									React.createElement("label", {class: "string optional", for: "user_remember_me"}, " Remember me")
 								), 
-								React.createElement(Button, {class: "btn btn-primary", style: {"clear": "left", "width": "100%", "height": "32px", "fontSize": "13px", "marginTop":"10px", "marginBottom":"7px"}, bsStyle: "primary", onClick: function(ev) {
+								React.createElement(BS.MenuItem, null, 
+								React.createElement(Button, {class: "btn btn-primary", type: "submit", style: {"clear": "left", "width": "100%", "height": "32px", "fontSize": "13px", "marginTop":"10px", "marginBottom":"7px"}, bsStyle: "primary", onClick: function(ev) {
 									var e_error = document.getElementById("login_error");
 									var e_username = document.getElementById("username").value;
 									var e_pass = document.getElementById("pass").value;
 									var e_remember = document.getElementById("remember").checked;
-									if(e_username != "admin" || e_pass != "admin"){ e_error.style.display = 'block'; return; }
+									//if(e_username != "admin" || e_pass != "admin"){ e_error.style.display = 'block'; return; }
 									console.log("LOGIN CORRECT");
 									if(e_remember) document.cookie = "username="+e_username;
 									e_error.style.display = 'none';
 									currentState.username = e_username;
-									self.props.onHide();
-								}}, " Sign In "), 
+									currentState.logged = true;
+									//window.location = "success.html";
+									//document.getElementById("login_div").style.display = 'none';
+								}}, " Sign In ")
+								), 
 								React.createElement("div", {id: "login_error", style: {"display":"none"}}, 
 									React.createElement("i", {id: "login_error_icon", className: "glyphicon glyphicon-remove"}), 
-									React.createElement("label", {class: "string optional", for: "login_error_icon", style: {"marginLeft":"3px", "fontWeight": "normal", "fontSize":"13px", "color":"red"}}, " Invalid username or password")
-								)								
-							)	
+									React.createElement("label", {className: "string optional", for: "login_error_icon", style: {"marginLeft":"3px", "fontWeight": "normal", "fontSize":"13px", "color":"red"}}, " Invalid username or password ")
+								), 
+								React.createElement("div", {id: "login_ok", style: {"display":"none"}}, 
+									React.createElement("i", {id: "login_ok_icon", className: "glyphicon glyphicon-ok-sign"}), 
+									React.createElement("label", {className: "string optional", for: "login_ok_icon", style: {"marginLeft":"3px", "fontWeight": "normal", "fontSize":"13px", "color":"green"}}, " Invalid username or password ")
+								)					
+							)
 					)
 	            )
-		)
-	    }
+			);
+		}
+		}
 
 	});
 
@@ -26291,8 +26496,6 @@
 		var scales = this._scales(width, height, props.data, props.attributes);
 		var path = this._path(props.attributes, scales, nanY);
 		var dragState = {};
-
-		console.log("PCP:", props.data);
 
 		var realSvg = d3.select(container).select("svg");
 		realSvg.attr("width", props.width)
@@ -26412,7 +26615,6 @@
 	        }
 
 	        attributes.forEach(function(d) {
-				console.log("D:", d);
 	            var name = d.name;
 	            if (d.attribute_type === 'QUANTITATIVE') {
 	                y[name] = d3.scale.linear()
@@ -35229,6 +35431,63 @@
 	    }
 
 	})(window);
+
+
+/***/ },
+/* 216 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var d3 = __webpack_require__(198);
+	var _ = __webpack_require__(2);
+
+	module.exports = {
+	    createChart: function(container, props, state) {
+		var margin = this.props.margin;
+		var width = this.props.width - margin.left - margin.right;
+		var height = this.props.height - margin.top - margin.bottom;
+
+		var svg = d3.select(container).append("svg")
+		    .attr("width", width + margin.left + margin.right)
+		    .attr("height", height + margin.top + margin.bottom)
+		    .attr("class", "parset")
+		  .append("g")
+		    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+	    },
+
+	    cleanChart: function(container, props, state){
+		// unsubscribe things 
+	    },
+
+	    update: function(container, props, state) {
+		if ( !(props.attributes.length && props.data.length)) {
+		    d3.select(container).html('');
+		    this.createChart(container, props, state);
+		    return null
+		};
+		var self = this;
+		var margin = props.margin;
+		var width = props.width - margin.left - margin.right;
+		var height = props.height - margin.top - margin.bottom;
+
+		var realSvg = d3.select(container).select("svg");
+		realSvg.attr("width", props.width)
+		    .attr("height", props.height);
+
+		var svg = d3.select(container).select("svg > g")
+		    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+		var chart = d3.parsets()
+		    .dimensions(props.attributes)
+		    .value(function(d){return d[props.value];})
+		    .width(width)
+		    .height(height);
+
+		svg.datum(props.data).call(chart);
+
+		return null;
+	    }
+	};
 
 
 /***/ }

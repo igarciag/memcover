@@ -41,8 +41,6 @@ module.exports = {
 	var path = this._path(props.attributes, scales, nanY);
 	var dragState = {};
 
-	console.log("PCP:", props.data);
-
 	var realSvg = d3.select(container).select("svg");
 	realSvg.attr("width", props.width)
 	    .attr("height", props.height);
@@ -161,7 +159,6 @@ module.exports = {
         }
 
         attributes.forEach(function(d) {
-			console.log("D:", d);
             var name = d.name;
             if (d.attribute_type === 'QUANTITATIVE') {
                 y[name] = d3.scale.linear()

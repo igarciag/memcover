@@ -33,22 +33,9 @@ module.exports = React.createClass({
 		    bsStyle={this.props.bsStyle} 
 		    title={this.props.label}>
 
-	      <BS.MenuItem header> File </BS.MenuItem>
-	      <BS.MenuItem onSelect={openFileMenu}> Open Analysis ... </BS.MenuItem>
+	      <BS.MenuItem onSelect={openFileMenu}> Open analysis </BS.MenuItem>
 	      <input style={{"display":"none"}} type="file" ref="openFile" onChange={onOpen}/>
-	      <BS.MenuItem onSelect={onSave}> Save Analysis </BS.MenuItem>
-
-	      <BS.MenuItem header> {header} </BS.MenuItem>
-	      
-	      {
-		  _.values(this.props.tables).map(function(table, i) {
-		      return(
-                          <BS.MenuItem eventKey={i} onSelect={ onExport.bind(this, table) }> 
-			  {table.name}
-			  </BS.MenuItem>
-		      )
-		  })
-	       }
+	      <BS.MenuItem onSelect={onSave}> Save analysis </BS.MenuItem>
             </BS.DropdownButton>
 	)
     }

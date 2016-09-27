@@ -94,7 +94,6 @@ return {
 		var selected = this.props.selected;
 		var currentState = this.props.currentState;
 		var tableName = Object.keys(this.props.currentState.tables)[0];
-		console.log("THISPROPS:", this.props.currentState);
 		var datasetName = this.props.currentState.tables[tableName].dataset_name;
 		if(!datasetName || datasetName == null) datasetName = "Unknown";
 		var new_cols = this.props.currentState.tables[tableName].new_cols;
@@ -107,8 +106,6 @@ return {
 		var attributeTypes = ["Categorical", "Quantitative", "Ordinal"];
 		var changedSchema = currentSchema;
 		
-		console.log("CURRENTSTATE:", this.state);
-
 		this.state.items = this.onChangeState(currentOrder);
 
 		function createElement(el) {
@@ -153,14 +150,15 @@ return {
 			);
 		}
 
-		return (
-				<Modal {...this.props} bsSize="large" title="Edit schema" animation={true}>
-					<div className="modal-body">
+		//if(currentAttributes.length > 0) {
+			var selectAnyFile = true;
+			var contentMenu = (
+					<div>
 						<div style={{"position": "relative", "width": "40%", "margin": "0 auto", "marginBottom": "20px"}}>
 							<label> Dataset name: </label>
 							<Input type="text" defaultValue={datasetName} onChange={function (ev){ datasetName = ev.target.value; }}/>
 						</div>
-						<div style={{"position": "relative", "width": "65%", "margin": "0 auto", "marginBottom": "20px"}}>
+						<div style={{"position": "relative", "width": "65%", "margin": "0 auto", "marginBottom": "20px", /*maxHeight: calcHeight+"px", overflowX: "hidden", overflowY: "scroll"*/}}>
 							<ResponsiveReactGridLayout onBreakpointChange={this.onBreakpointChange} isResizable={false} onLayoutChange={(newLayout) => {
 									console.log("onLayoutChange", newLayout);
 									self.setState({layout: newLayout});
@@ -172,11 +170,25 @@ return {
 							</ResponsiveReactGridLayout>
 						</div>	
 					</div>	
+				);
+		/*} else {
+			var selectAnyFile = false;
+			var contentMenu = (
+					<div>
+						<h4> Please, select some files to open data </h4>
+					</div>
+			);
+		}*/
+
+		var calcHeight = screen.height * 0.6;
+		return (
+				<Modal {...this.props} bsSize="large" title="Edit schema" animation={true}>
+					<div className="modal-body">
+						{contentMenu}
+					</div>	
 					<div className='modal-footer'>
 						<Button onClick={this.props.onHide}> Cancel </Button>
 						<Button onClick={function(ev) {
-							console.log("OK", changedSchema);
-
 							var copyChangedSchema = JSON.parse(JSON.stringify(changedSchema));
 							for(var key in self.state.originalNames){ //key is the old name, self.state.originalNames[key] is the new name
 								if(self.state.originalNames[key] == ""){ alert("Empty attribute names not allowed"); changedSchema = copyChangedSchema; return; }
@@ -190,8 +202,6 @@ return {
 								index = changedSchema.quantitative_attrs.indexOf(key);
 								if(index > -1) changedSchema.quantitative_attrs[index] = self.state.originalNames[key];
 							}
-
-							console.log("OK1", changedSchema);
 							
 							// Update order with new names (from original names)
 							for(var h=0; h<changedSchema.order.length; h++){
@@ -202,7 +212,7 @@ return {
 							// Save the edited schema
 							onSaveSchema(changedSchema, self.state.originalNames, datasetName);
 
-							if (propsSelectFile) propsSelectFile.onHide();							
+							if (propsSelectFile && selectAnyFile) propsSelectFile.onHide();							
 							self.props.onHide();
 						}} bsStyle="primary"> OK </Button>
 	      			</div>
