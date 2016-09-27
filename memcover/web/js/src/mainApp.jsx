@@ -1031,7 +1031,9 @@ module.exports = React.createClass({
 			     // Filter NaNs
 			     _.reduce(self.state.tables[card.config.table].data, function(acc, row) {
 				 if ( _.isNumber(row[card.config.xColumn]) && _.isNumber(row[card.config.yColumn]) ) {
-				     acc.push({x: row[card.config.xColumn], y: row[card.config.yColumn]});
+				     if(row['Patient'] == undefined || row['Patient'] == null) acc.push({index: row[self.state.tables[card.config.table].schema.index], x: row[card.config.xColumn], y: row[card.config.yColumn], patient: "Unknown patient"});
+				     else acc.push({index: row[self.state.tables[card.config.table].schema.index], x: row[card.config.xColumn], y: row[card.config.yColumn], patient: row['Patient']});
+					 
 				 }
 				 return acc;
 			     }, data);
