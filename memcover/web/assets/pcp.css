@@ -5,6 +5,7 @@ svg.pcp text {
 
 svg.pcp .foreground path {
   fill: none;
+  /*stroke: rgb(49, 130, 189);*/
   stroke: rgb(49, 130, 189);
   stroke-opacity: .5;
   stroke-width: 1px;

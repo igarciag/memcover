@@ -329,7 +329,8 @@ var DataTableMenu = React.createClass({
     getInitialState: function() {
 	return {
 	    table: this.props.options.tables[0],
-	    columns: this.props.options.columns
+	    columns: this.props.options.columns,
+		active_color: "darkred"
 	};
     },
 
@@ -342,7 +343,8 @@ var DataTableMenu = React.createClass({
 	return {
 	    table: this.state.table,
 	    columns: columns,
-		history_columns: selectedColumns
+		history_columns: selectedColumns,
+		active_color: "darkred"
 	};
     },
 

@@ -29,6 +29,32 @@ module.exports = {
 	    this.createChart(container, props, state);
 	    return null
 	};
+
+	var defaultColor = "rgb(49, 130, 189)";
+	var defaultWidth = "3px";
+	var defaultOpacity = .5;
+
+	d3.selection.prototype.moveToFront = function() {
+  return this.each(function(){
+    this.parentNode.appendChild(this);
+  });
+};
+
+	var toggleColor = (function(){
+		var current = d3.select(this).style("stroke").toString() == defaultColor;
+		var currentColor = current ? props.active_color : defaultColor;
+		var currentWidth = current ? "7px" : defaultWidth;
+		var currentOpacity = current ? 1 : defaultOpacity;
+		d3.select(this).style("stroke", currentColor).style("stroke-opacity", currentOpacity);//.style("stroke-width", currentWidth).style("stroke-opacity", currentOpacity);
+		d3.select(this).moveToFront();
+	});
+	var toggleColorMove = (function(d){
+		d3.select(this).style("stroke-opacity", 1);
+	});
+	var toggleColorOut = (function(){
+		if(d3.select(this).style("stroke").toString() == defaultColor) d3.select(this).style("stroke-opacity", defaultOpacity);
+	});
+
 	var self = this;
 	var nanMargin = 50;
 	var margin = props.margin;
@@ -54,15 +80,37 @@ module.exports = {
 	  .data(props.data, function(d){return d[props.index];});
 	foregroundLines.enter().append("path");
 	foregroundLines.attr("d", path)
+		.style("stroke-width", defaultWidth)
 //	    .attr("class", function(d) {return d.patient;})
-	    .attr("title", function(d) {return d[props.index];});
+	    .attr("title", function(d) {return d[props.index];})
+		.on("click", toggleColor)
+		.on("mouseover", toggleColorMove)
+		.on("mouseout", toggleColorOut);
+		/*.on("click", function(evt) {
+				var root = document.getElementsByTagName("svg");
+				console.log("svg", svg.node());
+				var rpos = root.createSVGRect();
+				rpos.x = evt.clientX;
+				rpos.y = evt.clientY;
+				rpos.width = rpos.height = 1;
+				var list = root.getIntersectionList(rpos, null);
+				console.log(list);
+
+				console.log("mousePositionnn", mousePosition);   
+				d3.selectAll("path").each(function(d) {
+					var mousePositionn = d3.mouse(this);
+  					console.log("EEEEEEEE", mousePositionn, this); // Logs the element attached to d.
+				});
+			});*/
+	//if(props.active_color != undefined) foregroundLines.style("stroke", props.active_color);
 	foregroundLines.exit().remove();
+
 
 	var brushes = this._brushes(scales, props.attributes, props.onBrush, foreground);
 
 	// Add a group element for each trait.
 	var coordinates = svg.selectAll(".coordinate")
-		.data(_.pluck(props.attributes, "name"), function(d){return d;});
+		.data(_.pluck(props.attributes, "name"), function(d){ return d;});
 	coordinates.enter().append("g").attr("class", "coordinate")
 		.call(function(g) {
 		    // Add an axis and title.
@@ -128,7 +176,7 @@ module.exports = {
 	    x.range()[dragState.i] = d3.event.x;
 	    attributes.sort(function(a, b) { return x(a.name) - x(b.name); });
 	    g.attr("transform", function(d) { return "translate(" + x(d) + ")"; });
-	    foregroundLines.attr("d", path);
+	    foregroundLines.attr("d", path);//.style("stroke", "red");
 	};
     },
 
@@ -228,14 +276,15 @@ module.exports = {
 	return function (d) {
 	    return line(_.pluck(attributes, "name")
 			.map(function(a) {
-			    var y = scales.y[a](d[a])
+			    var y = scales.y[a](d[a])				
 			    return [scales.x(a), !isNaN(y) ? y : nanY ]; }));
 	};
     },
 
     _humanizeCoordinateLabels: function(textSelection, attributes) {
-	textSelection.text(function(d){return _.capitalize(String(d));});
-	textSelection.transition().attr("y", function(d,i){return (_.findIndex(attributes, {name:d}) %2)? -9 : -27;});
+		console.log("textSelection:", textSelection);
+	textSelection.text(function(d){ return _.capitalize(String(d));});
+	textSelection.transition().attr("y", function(d,i){ return (_.findIndex(attributes, {name:d}) %2) ? -9 : -27;});
     }
 
 };

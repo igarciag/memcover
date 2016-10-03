@@ -1012,10 +1012,12 @@ module.exports = React.createClass({
                 	return self.state.tables[card.config.table].schema.attributes[c];});
 				var allColumnNames = _.pluck(card.config.columns, 'name');
 
+				console.log("self.state.cards[card.key].config.active_color:", self.state.cards[card.key].config);
 			    component = <PCPChart {...size}
 				data={self.state.tables[card.config.table].data}
 				margin={{top: 50, right: 40, bottom: 10, left: 40}}
 				attributes={attributes}
+				active_color={self.state.cards[card.key].config.active_color}
 				index={self.state.tables[card.config.table].schema.index}
 				onBrush={function(extent) {/*console.log(extent);*/ }}
 				onAttributeSort={ function(attributes){
