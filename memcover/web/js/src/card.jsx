@@ -30,8 +30,6 @@ module.exports = React.createClass({
 	var contentSize = {width: this.props.size.width + 17, height: this.props.size.height + 17};
 	var menuActions = this.props.menuActions || [];
 	var columns = this.props.columns || [];
-	var allColumns = this.props.allColumns || [];
-	var historyColumns = state.cards[cardId].config.history_columns;
 
 	if (! _.isEmpty(menuActions)) {
 	    var menu = (
@@ -53,6 +51,9 @@ module.exports = React.createClass({
 
 
 	if (state.cards[cardId].kind == "pcp") {
+		var allColumns = this.props.allColumns || [];
+		var historyColumns = state.cards[cardId].config.history_columns;
+		state.cards[cardId].config.columns = state.cards[cardId].config.all_columns;
 	    var attr = (
 				<div className="card-menu btn-group" style={{marginRight:"23px"}}>
 					<BS.DropdownButton id="dropdownmenu_attr" title={<span className="glyphicon glyphicon-list"></span>} style={{maxWidth:"150px"}} bsStyle="default" bsSize="xsmall">
@@ -65,7 +66,7 @@ module.exports = React.createClass({
 									if(columns.indexOf(column) != -1){
 										return (<li><small><input type="checkbox" id={column} value={column} checked onChange={function(ev) { state.cards[cardId].config.columns[i].included = ev.target.checked; if(is_history == -1) historyColumns.push(column); parent.forceUpdate(); }}/><label style={{fontWeight:"normal", color: color}}> {column} </label></small></li>);
 									}
-									return (<li><small><input type="checkbox" value={column} onChange={function(ev){ state.cards[cardId].config.columns[i].included = ev.target.checked; if(is_history == -1) historyColumns.push(column); parent.forceUpdate(); }}/><label style={{fontWeight:"normal", color: color}}> {column} </label></small></li>);
+									return (<li><small><input type="checkbox" id={column} value={column} onChange={function(ev){ state.cards[cardId].config.columns[i].included = ev.target.checked; if(is_history == -1) historyColumns.push(column); parent.forceUpdate(); }}/><label style={{fontWeight:"normal", color: color}}> {column} </label></small></li>);
 								})
 							}
 						</div>
@@ -75,22 +76,20 @@ module.exports = React.createClass({
 
 		var color_list = ["darkred", "brown", "red", "orangered", "chocolate", "orange", "yellow", "indigo", "darkmagenta", "deeppink", "rosybrown", "pink", "darkblue", "blue", "darkslategray", "teal", "darkgreen", "olive", "green", "chartreuse", "black"];
 		var colors = (
-				<div className="card-menu btn-group" style={{marginRight:"62px"}}>
-					<BS.DropdownButton id="dropdownmenu_color" title={<div id="menu_color_square" style={{float: "left", width: "15px", height: "15px", background: color_list[0], marginRight:"4px", marginTop:"1px"}}></div>} style={{maxWidth:"50px"}} bsStyle="default" bsSize="xsmall">
-						<div class="dropdown-menu" role="menu">
-							{_.map(color_list, function(color, i) {
-									//if(color == active_color) return (<BS.MenuItem active onClick={function(ev){ document.getElementById("menu_color_square").style.background=color; active_color=color; eventFire(document.getElementById('dropdownmenu_color'), 'click'); }}> <div value={color} style={{float: "left", width: "15px", height: "15px", background:color, marginRight:"4px", marginTop:"1px"}}></div> {color} </BS.MenuItem>);
-									return (<div onClick={function(ev){ document.getElementById("menu_color_square").style.background=color; state.cards[cardId].config.active_color=color; parent.forceUpdate(); eventFire(document.getElementById('dropdownmenu_color'), 'click'); }} value={color} style={{float: "left", width: "15px", height: "15px", background:color, marginLeft:"6px", marginTop:"4px", cursor: "pointer"}}></div>);
-								})
-							}
-						</div>
-					</BS.DropdownButton>
-				</div>
-	    	);
-		console.log(self.props.children._store.props.active_color);
+			<div className="card-menu btn-group" style={{marginRight:"62px"}}>
+				<BS.DropdownButton id="dropdownmenu_color" title={<div id="menu_color_square" style={{float: "left", width: "15px", height: "15px", background: color_list[0], marginRight:"4px", marginTop:"1px"}}></div>} style={{maxWidth:"50px"}} bsStyle="default" bsSize="xsmall">
+					<div class="dropdown-menu" role="menu">
+						{_.map(color_list, function(color, i) {
+								//if(color == active_color) return (<BS.MenuItem active onClick={function(ev){ document.getElementById("menu_color_square").style.background=color; active_color=color; eventFire(document.getElementById('dropdownmenu_color'), 'click'); }}> <div value={color} style={{float: "left", width: "15px", height: "15px", background:color, marginRight:"4px", marginTop:"1px"}}></div> {color} </BS.MenuItem>);
+								return (<div onClick={function(ev){ document.getElementById("menu_color_square").style.background=color; state.cards[cardId].config.active_color=color; parent.forceUpdate(); eventFire(document.getElementById('dropdownmenu_color'), 'click'); }} value={color} style={{float: "left", width: "15px", height: "15px", background:color, marginLeft:"6px", marginTop:"4px", cursor: "pointer"}}></div>);
+							})
+						}
+					</div>
+				</BS.DropdownButton>
+			</div>
+	    );
 	}
 
-	console.log("CHHH", this.props.children);
 	return (
 	    <div className="card" id="card_div" key={this.props.key}>
 			<div className="card-header">

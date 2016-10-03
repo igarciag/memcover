@@ -330,6 +330,7 @@ var DataTableMenu = React.createClass({
 	return {
 	    table: this.props.options.tables[0],
 	    columns: this.props.options.columns,
+	    all_columns: this.props.options.columns,
 		active_color: "darkred"
 	};
     },
@@ -343,6 +344,7 @@ var DataTableMenu = React.createClass({
 	return {
 	    table: this.state.table,
 	    columns: columns,
+	    all_columns: columns,
 		history_columns: selectedColumns,
 		active_color: "darkred"
 	};
@@ -350,6 +352,7 @@ var DataTableMenu = React.createClass({
 
     handleCheck: function(table, columns) {
 	var state = _.set(this.state, ["columns", table], columns);
+	console.log("COOOOOOOLUMNS:", columns);	
 	this.setState(state);
     },
 
@@ -364,12 +367,12 @@ var DataTableMenu = React.createClass({
 	}
 
 	return (
-            <div>
-	      <form>
-		<TableMenuItem tableLink={this.linkState('table')} tables={options.tables}> </TableMenuItem>
+        <div>
+			<form>
+				<TableMenuItem tableLink={this.linkState('table')} tables={options.tables}> </TableMenuItem>
 
-		<CheckboxColumnsMenuItem label={"Columns"} columns={columns} onChange={handleCheck}> </CheckboxColumnsMenuItem>
-	      </form>
+				<CheckboxColumnsMenuItem label={"Columns"} columns={columns} onChange={handleCheck}> </CheckboxColumnsMenuItem>
+			</form>
 	    </div>
 	);
 

@@ -35,25 +35,18 @@ module.exports = {
 	var defaultOpacity = .5;
 
 	d3.selection.prototype.moveToFront = function() {
-  return this.each(function(){
-    this.parentNode.appendChild(this);
-  });
-};
-
-	var toggleColor = (function(){
-		var current = d3.select(this).style("stroke").toString() == defaultColor;
-		var currentColor = current ? props.active_color : defaultColor;
-		var currentWidth = current ? "7px" : defaultWidth;
-		var currentOpacity = current ? 1 : defaultOpacity;
-		d3.select(this).style("stroke", currentColor).style("stroke-opacity", currentOpacity);//.style("stroke-width", currentWidth).style("stroke-opacity", currentOpacity);
-		d3.select(this).moveToFront();
-	});
-	var toggleColorMove = (function(d){
-		d3.select(this).style("stroke-opacity", 1);
-	});
-	var toggleColorOut = (function(){
-		if(d3.select(this).style("stroke").toString() == defaultColor) d3.select(this).style("stroke-opacity", defaultOpacity);
-	});
+		return this.each(function(){
+			this.parentNode.appendChild(this);
+		});
+	};
+	d3.selection.prototype.moveToBack = function() {  
+		return this.each(function() { 
+			var firstChild = this.parentNode.firstChild; 
+			if (firstChild) { 
+				this.parentNode.insertBefore(this, firstChild); 
+			} 
+		});
+	};
 
 	var self = this;
 	var nanMargin = 50;
@@ -73,6 +66,30 @@ module.exports = {
 
 	var svg = d3.select(container).select("svg > g")
 	    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+	var toggleColor = (function(){
+		var current = d3.select(this).style("stroke").toString() == defaultColor;
+		var currentColor = current ? props.active_color : defaultColor;
+		var currentWidth = current ? "7px" : defaultWidth;
+		var currentOpacity = current ? 1 : defaultOpacity;
+		d3.select(this).style("stroke", currentColor).style("stroke-opacity", currentOpacity);//.style("stroke-width", currentWidth).style("stroke-opacity", currentOpacity);
+		d3.select(this).moveToFront();
+		/*COLOREAR SEGUN EL VALOR DE Patient*
+		var patientThis = d3.select(this)[0][0].__data__.Patient;
+		d3.selectAll("path").each(function(d) {
+			if(patientThis == d.Patient){
+				d3.select(this).style("stroke", currentColor).style("stroke-opacity", currentOpacity);
+				d3.select(this).moveToFront();
+			}
+		});*/
+	});
+	var toggleColorMove = (function(d){
+		d3.select(this).style("stroke-opacity", 1);
+	});
+	var toggleColorOut = (function(){
+		if(d3.select(this).style("stroke").toString() == defaultColor) d3.select(this).style("stroke-opacity", defaultOpacity);
+	});
 
 	// Add foreground lines.
 	var foreground = svg.select("g.foreground");
@@ -140,6 +157,32 @@ module.exports = {
 		.attr("x", -8)
 		.attr("width", 16);
 	this._humanizeCoordinateLabels(coordinates.selectAll("text.dimension"), props.attributes);
+	
+	d3.selectAll("g").each(function(d) {
+			var attrName = d3.select(this.parentNode)[0][0].__data__;	
+			if(attrName != null) {
+				var pathsToPaint = [];
+				var attrValue = d;
+				var color = defaultColor;
+				var opacity = defaultOpacity;
+				d3.select(this).on("click", function(){
+					d3.selectAll("path").each(function(d2) {
+						if(attrValue == d2[attrName] && attrValue != null){
+							if(d3.select(this).style("stroke").toString() == defaultColor){
+								color = props.active_color;
+								opacity = 1;
+							}
+							pathsToPaint.push(d3.select(this));
+						}
+					});
+					for(var i=0; i<pathsToPaint.length; i++){
+						pathsToPaint[i].style("stroke", color).style("stroke-opacity", opacity);
+						pathsToPaint[i].moveToFront();
+					}
+				});
+			}
+	});
+
 	coordinates.exit().remove();
 
 
@@ -260,7 +303,8 @@ module.exports = {
 	    foreground.selectAll("path")
 		.attr('display', function(d) {
 		    var isInside = actives.every(function(dim) {
-			    //TODO: CATEGORICAL: console.log(extents[dim][0], "<=", d[dim], "&&",  d[dim], "<=" , extents[dim][1]);
+			    //TODO: CATEGORICAL: 
+				console.log(extents[dim][0], "<=", d[dim], "&&",  d[dim], "<=" , extents[dim][1]);
 			    return extents[dim][0] <= d[dim] && d[dim] <= extents[dim][1];
 			});
 		    return isInside ? null : 'none';
@@ -282,7 +326,6 @@ module.exports = {
     },
 
     _humanizeCoordinateLabels: function(textSelection, attributes) {
-		console.log("textSelection:", textSelection);
 	textSelection.text(function(d){ return _.capitalize(String(d));});
 	textSelection.transition().attr("y", function(d,i){ return (_.findIndex(attributes, {name:d}) %2) ? -9 : -27;});
     }
