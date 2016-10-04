@@ -528,6 +528,27 @@ module.exports = React.createClass({
 
 		var tableName = Object.keys(self.state.tables)[0];
 
+		//Update cards
+		_.map(self.state.cards, function(card){
+			var objectsToChange = ["columns"];
+			if(card.kind == "pcp"){
+				for(var i=0; i<card.config.history_columns.length; i++) {
+					if(originalNames[card.config.history_columns[i]] != null) card.config.history_columns[i] = originalNames[card.config.history_columns[i]];
+				}
+				objectsToChange = ["columns", "all_columns"];
+			} else if(card.kind == "parset") objectsToChange = ["dimensions"];
+
+			_.map(objectsToChange, function(obj){
+				_.map(card.config[obj], function(column){
+					if(originalNames[column.name] != null) column.name = originalNames[column.name];
+					/*if(newSchema.attributes[column.name].attribute_type != null) column.attribute_type = newSchema.attributes[column.name].attribute_type;
+					else if(newSchema.attributes[originalNames[column.name]].attribute_type != null) column.attribute_type = newSchema.attributes[originalNames[column.name]].attribute_type;*/
+				});
+			});
+			console.log("card.config[obj]:", card.config.columns);
+		});
+		
+
 		console.log("Saved dataset_name '"+datasetName+"'");
 		self.state.tables[tableName].dataset_name = datasetName;
 			
@@ -707,8 +728,11 @@ module.exports = React.createClass({
 	if (this.state.layout.length === 0) key = "c0";
 	else key = "c" + (parseInt(_.rest(_.last(this.state.layout).i)) + 1);
 
+	var initW = 6;
+	var initH = 6;
 	card.key = key;
-	this.state.layout.push({x:0, y: Y, w: 6, h: 6, i:key, handle:".card-anchor"});
+	if(card.kind == "categoricalFilter" || card.kind == "rangeFilter") initH = 2;
+	this.state.layout.push({x:0, y: Y, w: initW, h: initH, i:key, handle:".card-anchor"});
 	this.state.cards[key] = card;
 	this.setState({layout:this.state.layout, cards: this.state.cards});
 

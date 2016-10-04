@@ -108,6 +108,9 @@ return {
 		
 		this.state.items = this.onChangeState(currentOrder);
 
+		var fixedColumns = ["Patient", "Region"]; //Columns that aren't recommended to modify
+		var fixedColumnsCurrent = [];
+
 		function createElement(el) {
 			var attr = el.i;
 			var color1 = new_cols.indexOf(attr) != -1 ? "#CCCCCC" : "#A5A5A5";
@@ -122,30 +125,44 @@ return {
 								<div className="btn btn-xs btn-default" aria-hidden="true" onClick={function(ev){ self.onRemoveItem(attr); delete self.state.originalNames[attr]; delete changedSchema.attributes[attr]; if(changedSchema.order.indexOf(attr) > -1) changedSchema.order.splice(changedSchema.order.indexOf(attr), 1);; console.log("changedSchema", changedSchema); }}>
 										<span className="icon glyphicon glyphicon-remove"/>
 								</div>
-									<input type="text" id={attr} old={attr} defaultValue={attr} style={{"width":"50%", "min-width":"20%", "height":"30px", "marginLeft":"5%"}} onChange={function (ev){
-												var oldName = ev.target.old; var newName = ev.target.value;
-												ev.target.old = newName;
-												/*changedSchema.attributes[oldName].name = newName; changedSchema.attributes[newName] = changedSchema.attributes[oldName];
-												delete changedSchema.attributes[oldName];													
-												ev.target.id = newName;
-												for(var key in changedSchema.order) if(changedSchema.order[key] === oldName) changedSchema.order[key] = newName;						
-												for(var key in changedSchema.quantitative_attrs) if(changedSchema.quantitative_attrs[key] === oldName) changedSchema.quantitative_attrs[key] = newName;
-												el.i = newName;*/
-												self.state.originalNames[attr] = newName;
+								<input type="text" id={attr} old={attr} defaultValue={attr} style={{"border":"1px solid #CCCCCC", "width":"50%", "min-width":"20%", "height":"30px", "marginLeft":"5%"}} onChange={function (ev){
+											var oldName = ev.target.old; var newName = ev.target.value;
+											ev.target.old = newName;
+											if(fixedColumns.indexOf(attr) != -1){
+												ev.target.style.border = "3px solid #FF0000";
+												if(fixedColumnsCurrent.indexOf(attr) == -1) fixedColumnsCurrent.push(attr);
+												document.getElementById("warningFixedColumns").style.display = "inline";
+												document.getElementById("warningFixedColumns").innerHTML = "Is not recommended to rename the attributes '" + fixedColumnsCurrent.join("', '") + "'. If you rename these attributes, is probably that the tool doesn't work correctly";												
 											}
-										}/>
-									<select id={"sel"+attr} style={{"background": "#428bca", "color": "#fff", "width":"25%", "height":"30px", "marginLeft":"2%", "borderRadius": "4px"}} onChange={function (ev){
-												currentAttributes[attr].attribute_type = ev.target.value;
-											}
-										}>
-											{attributeTypes.map(function(attrType, j){
-													if(currentAttributes[attr].attribute_type.toLowerCase() == attrType.toLowerCase()) return ( <option value={attrType} selected> {attrType} </option> );
-													else return ( <option value={attrType}> {attrType} </option> );
+											if(newName == attr){
+												ev.target.style.border = "1px solid #CCCCCC";
+												if(fixedColumnsCurrent.indexOf(attr) != -1){
+													fixedColumnsCurrent.splice(fixedColumnsCurrent.indexOf(attr), 1);
+													if(fixedColumnsCurrent.length == 0) document.getElementById("warningFixedColumns").style.display = "none";
+													else document.getElementById("warningFixedColumns").innerHTML = "Is not recommended to rename the attributes '" + fixedColumnsCurrent.join("', '") + "'. If you rename these attributes, is probably that the tool doesn't work correctly";
 												}
-											)}
-									</select>
-								</div>
-							</form>
+											}
+											/*changedSchema.attributes[oldName].name = newName; changedSchema.attributes[newName] = changedSchema.attributes[oldName];
+											delete changedSchema.attributes[oldName];													
+											ev.target.id = newName;
+											for(var key in changedSchema.order) if(changedSchema.order[key] === oldName) changedSchema.order[key] = newName;						
+											for(var key in changedSchema.quantitative_attrs) if(changedSchema.quantitative_attrs[key] === oldName) changedSchema.quantitative_attrs[key] = newName;
+											el.i = newName;*/
+										self.state.originalNames[attr] = newName;
+										}
+									}/>
+								<select id={"sel"+attr} style={{"background": "#428bca", "color": "#FFF", "width":"25%", "height":"30px", "marginLeft":"2%", "borderRadius": "4px"}} onChange={function (ev){
+											currentAttributes[attr].attribute_type = ev.target.value;
+										}
+									}>
+										{attributeTypes.map(function(attrType, j){
+												if(currentAttributes[attr].attribute_type.toLowerCase() == attrType.toLowerCase()) return ( <option value={attrType} selected> {attrType} </option> );
+												else return ( <option value={attrType}> {attrType} </option> );
+											}
+										)}
+								</select>
+							</div>
+						</form>
 					</div>
 			);
 		}
@@ -168,6 +185,7 @@ return {
 								{...this.props}>
 									{_.map(this.state.items, createElement)}
 							</ResponsiveReactGridLayout>
+							<span id="warningFixedColumns" style={{"display":"none", "color":"#FF0000"}}>It is not recommended to rename attributes</span>		
 						</div>	
 					</div>	
 				);

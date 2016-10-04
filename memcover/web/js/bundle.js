@@ -3222,6 +3222,27 @@
 
 			var tableName = Object.keys(self.state.tables)[0];
 
+			//Update cards
+			_.map(self.state.cards, function(card){
+				var objectsToChange = ["columns"];
+				if(card.kind == "pcp"){
+					for(var i=0; i<card.config.history_columns.length; i++) {
+						if(originalNames[card.config.history_columns[i]] != null) card.config.history_columns[i] = originalNames[card.config.history_columns[i]];
+					}
+					objectsToChange = ["columns", "all_columns"];
+				} else if(card.kind == "parset") objectsToChange = ["dimensions"];
+
+				_.map(objectsToChange, function(obj){
+					_.map(card.config[obj], function(column){
+						if(originalNames[column.name] != null) column.name = originalNames[column.name];
+						/*if(newSchema.attributes[column.name].attribute_type != null) column.attribute_type = newSchema.attributes[column.name].attribute_type;
+						else if(newSchema.attributes[originalNames[column.name]].attribute_type != null) column.attribute_type = newSchema.attributes[originalNames[column.name]].attribute_type;*/
+					});
+				});
+				console.log("card.config[obj]:", card.config.columns);
+			});
+			
+
 			console.log("Saved dataset_name '"+datasetName+"'");
 			self.state.tables[tableName].dataset_name = datasetName;
 				
@@ -3401,8 +3422,11 @@
 		if (this.state.layout.length === 0) key = "c0";
 		else key = "c" + (parseInt(_.rest(_.last(this.state.layout).i)) + 1);
 
+		var initW = 6;
+		var initH = 6;
 		card.key = key;
-		this.state.layout.push({x:0, y: Y, w: 6, h: 6, i:key, handle:".card-anchor"});
+		if(card.kind == "categoricalFilter" || card.kind == "rangeFilter") initH = 2;
+		this.state.layout.push({x:0, y: Y, w: initW, h: initH, i:key, handle:".card-anchor"});
 		this.state.cards[key] = card;
 		this.setState({layout:this.state.layout, cards: this.state.cards});
 
@@ -3704,12 +3728,13 @@
 				    var columnNames = _.pluck(_.filter(card.config.columns, 'included'), 'name');
 				    var attributes = _.map(columnNames, function(c){
 	                	return self.state.tables[card.config.table].schema.attributes[c];});
-					var allColumnNames = _.pluck(card.config.columns, 'name');
+					var allColumnNames = _.pluck(card.config.all_columns, 'name');
 
 				    component = React.createElement(PCPChart, React.__spread({},  size, 
 					{data: self.state.tables[card.config.table].data, 
 					margin: {top: 50, right: 40, bottom: 10, left: 40}, 
 					attributes: attributes, 
+					active_color: self.state.cards[card.key].config.active_color, 
 					index: self.state.tables[card.config.table].schema.index, 
 					onBrush: function(extent) {/*console.log(extent);*/ }, 
 					onAttributeSort:  function(attributes){
@@ -3725,7 +3750,9 @@
 				     // Filter NaNs
 				     _.reduce(self.state.tables[card.config.table].data, function(acc, row) {
 					 if ( _.isNumber(row[card.config.xColumn]) && _.isNumber(row[card.config.yColumn]) ) {
-					     acc.push({x: row[card.config.xColumn], y: row[card.config.yColumn]});
+					     if(row['Patient'] == undefined || row['Patient'] == null) acc.push({index: row[self.state.tables[card.config.table].schema.index], x: row[card.config.xColumn], y: row[card.config.yColumn], patient: "Unknown patient"});
+					     else acc.push({index: row[self.state.tables[card.config.table].schema.index], x: row[card.config.xColumn], y: row[card.config.yColumn], patient: row['Patient']});
+						 
 					 }
 					 return acc;
 				     }, data);
@@ -24916,8 +24943,6 @@
 		var contentSize = {width: this.props.size.width + 17, height: this.props.size.height + 17};
 		var menuActions = this.props.menuActions || [];
 		var columns = this.props.columns || [];
-		var allColumns = this.props.allColumns || [];
-		var historyColumns = state.cards[cardId].config.history_columns;
 
 		if (! _.isEmpty(menuActions)) {
 		    var menu = (
@@ -24937,20 +24962,39 @@
 		    );
 		}
 
+
 		if (state.cards[cardId].kind == "pcp") {
+			var allColumns = this.props.allColumns || [];
+			var historyColumns = state.cards[cardId].config.history_columns;
+			state.cards[cardId].config.columns = state.cards[cardId].config.all_columns;
 		    var attr = (
-				React.createElement("div", {className: "card-menu btn-group", style: {marginRight:"23px"}}, 
-					React.createElement(BS.DropdownButton, {id: "dropdownmenu", title: React.createElement("span", {className: "glyphicon glyphicon-list"}), style: {maxWidth:"150px"}, bsStyle: "default", bsSize: "xsmall"}, 
-						React.createElement("div", {id: "checklist_attr", style: {maxHeight:(this.props.size.height-30)+"px", maxWidth:"160px", overflowY:"scroll"}}, 
-							React.createElement("a", {href: "#", class: "btn btn-default"}, React.createElement("span", {className: "glyphicon glyphicon-remove", style: {float:"right", color:"gray", marginRight:"5px"}, onClick: function(ev){ eventFire(document.getElementById('dropdownmenu'), 'click'); }})), 
-							_.map(allColumns, function(column, i) {
-									var color = "#555555";
-									var is_history = historyColumns.indexOf(column);
-									if(is_history != -1) color = "#9932CC";
-									if(columns.indexOf(column) != -1){
-										return (React.createElement("li", null, React.createElement("small", null, React.createElement("input", {type: "checkbox", id: column, value: column, checked: true, onChange: function(ev) { state.cards[cardId].config.columns[i].included = ev.target.checked; if(is_history == -1) historyColumns.push(column); parent.forceUpdate(); }}), React.createElement("label", {style: {fontWeight:"normal", color: color}}, " ", column, " "))));
-									}
-									return (React.createElement("li", null, React.createElement("small", null, React.createElement("input", {type: "checkbox", value: column, onChange: function(ev){ state.cards[cardId].config.columns[i].included = ev.target.checked; if(is_history == -1) historyColumns.push(column); parent.forceUpdate(); }}), React.createElement("label", {style: {fontWeight:"normal", color: color}}, " ", column, " "))));
+					React.createElement("div", {className: "card-menu btn-group", style: {marginRight:"23px"}}, 
+						React.createElement(BS.DropdownButton, {id: "dropdownmenu_attr", title: React.createElement("span", {className: "glyphicon glyphicon-list"}), style: {maxWidth:"150px"}, bsStyle: "default", bsSize: "xsmall"}, 
+							React.createElement("div", {id: "checklist_attr", style: {maxHeight:(this.props.size.height-30)+"px", maxWidth:"160px", overflowY:"scroll"}}, 
+								React.createElement("a", {href: "#", class: "btn btn-default"}, React.createElement("span", {className: "glyphicon glyphicon-remove", style: {float:"right", color:"gray", marginRight:"5px"}, onClick: function(ev){ eventFire(document.getElementById('dropdownmenu_attr'), 'click'); }})), 
+								_.map(allColumns, function(column, i) {
+										var color = "#555555";
+										var is_history = historyColumns.indexOf(column);
+										if(is_history != -1) color = "#9932CC";
+										if(columns.indexOf(column) != -1){
+											return (React.createElement("li", null, React.createElement("small", null, React.createElement("input", {type: "checkbox", id: column, value: column, checked: true, onChange: function(ev) { state.cards[cardId].config.columns[i].included = ev.target.checked; if(is_history == -1) historyColumns.push(column); parent.forceUpdate(); }}), React.createElement("label", {style: {fontWeight:"normal", color: color}}, " ", column, " "))));
+										}
+										return (React.createElement("li", null, React.createElement("small", null, React.createElement("input", {type: "checkbox", id: column, value: column, onChange: function(ev){ state.cards[cardId].config.columns[i].included = ev.target.checked; if(is_history == -1) historyColumns.push(column); parent.forceUpdate(); }}), React.createElement("label", {style: {fontWeight:"normal", color: color}}, " ", column, " "))));
+									})
+								
+							)
+						)
+					)
+				);
+
+			var color_list = ["darkred", "brown", "red", "orangered", "chocolate", "orange", "yellow", "indigo", "darkmagenta", "deeppink", "rosybrown", "pink", "darkblue", "blue", "darkslategray", "teal", "darkgreen", "olive", "green", "chartreuse", "black"];
+			var colors = (
+				React.createElement("div", {className: "card-menu btn-group", style: {marginRight:"62px"}}, 
+					React.createElement(BS.DropdownButton, {id: "dropdownmenu_color", title: React.createElement("div", {id: "menu_color_square", style: {float: "left", width: "15px", height: "15px", background: color_list[0], marginRight:"4px", marginTop:"1px"}}), style: {maxWidth:"50px"}, bsStyle: "default", bsSize: "xsmall"}, 
+						React.createElement("div", {class: "dropdown-menu", role: "menu"}, 
+							_.map(color_list, function(color, i) {
+									//if(color == active_color) return (<BS.MenuItem active onClick={function(ev){ document.getElementById("menu_color_square").style.background=color; active_color=color; eventFire(document.getElementById('dropdownmenu_color'), 'click'); }}> <div value={color} style={{float: "left", width: "15px", height: "15px", background:color, marginRight:"4px", marginTop:"1px"}}></div> {color} </BS.MenuItem>);
+									return (React.createElement("div", {onClick: function(ev){ document.getElementById("menu_color_square").style.background=color; state.cards[cardId].config.active_color=color; parent.forceUpdate(); eventFire(document.getElementById('dropdownmenu_color'), 'click'); }, value: color, style: {float: "left", width: "15px", height: "15px", background:color, marginLeft:"6px", marginTop:"4px", cursor: "pointer"}}));
 								})
 							
 						)
@@ -24965,6 +25009,8 @@
 					React.createElement("div", {className: "card-move btn btn-xs btn-default card-anchor glyphicon glyphicon-move", "aria-hidden": "true"}), 
 
 					attr, 
+
+					colors, 
 
 					{menu:menu}, 
 
@@ -25315,7 +25361,9 @@
 	    getInitialState: function() {
 		return {
 		    table: this.props.options.tables[0],
-		    columns: this.props.options.columns
+		    columns: this.props.options.columns,
+		    all_columns: this.props.options.columns,
+			active_color: "darkred"
 		};
 	    },
 
@@ -25328,12 +25376,15 @@
 		return {
 		    table: this.state.table,
 		    columns: columns,
-			history_columns: selectedColumns
+		    all_columns: columns,
+			history_columns: selectedColumns,
+			active_color: "darkred"
 		};
 	    },
 
 	    handleCheck: function(table, columns) {
 		var state = _.set(this.state, ["columns", table], columns);
+		console.log("COOOOOOOLUMNS:", columns);	
 		this.setState(state);
 	    },
 
@@ -25348,12 +25399,12 @@
 		}
 
 		return (
-	            React.createElement("div", null, 
-		      React.createElement("form", null, 
-			React.createElement(TableMenuItem, {tableLink: this.linkState('table'), tables: options.tables}, " "), 
+	        React.createElement("div", null, 
+				React.createElement("form", null, 
+					React.createElement(TableMenuItem, {tableLink: this.linkState('table'), tables: options.tables}, " "), 
 
-			React.createElement(CheckboxColumnsMenuItem, {label: "Columns", columns: columns, onChange: handleCheck}, " ")
-		      )
+					React.createElement(CheckboxColumnsMenuItem, {label: "Columns", columns: columns, onChange: handleCheck}, " ")
+				)
 		    )
 		);
 
@@ -25374,10 +25425,10 @@
 	    getInitialState: function() {
 		var table = this.props.table || this.props.options.tables[0];
 		
-		if(Object.keys(this.props.options.columns[table]).length <= 1){
+		/*if(Object.keys(this.props.options.columns[table]).length <= 1){
 			alert("Please, open a data file\n");
 			return {};
-		}
+		}*/
 
 		return {
 		    table: table,
@@ -26096,6 +26147,9 @@
 			
 			this.state.items = this.onChangeState(currentOrder);
 
+			var fixedColumns = ["Patient", "Region"]; //Columns that aren't recommended to modify
+			var fixedColumnsCurrent = [];
+
 			function createElement(el) {
 				var attr = el.i;
 				var color1 = new_cols.indexOf(attr) != -1 ? "#CCCCCC" : "#A5A5A5";
@@ -26110,30 +26164,44 @@
 									React.createElement("div", {className: "btn btn-xs btn-default", "aria-hidden": "true", onClick: function(ev){ self.onRemoveItem(attr); delete self.state.originalNames[attr]; delete changedSchema.attributes[attr]; if(changedSchema.order.indexOf(attr) > -1) changedSchema.order.splice(changedSchema.order.indexOf(attr), 1);; console.log("changedSchema", changedSchema); }}, 
 											React.createElement("span", {className: "icon glyphicon glyphicon-remove"})
 									), 
-										React.createElement("input", {type: "text", id: attr, old: attr, defaultValue: attr, style: {"width":"50%", "min-width":"20%", "height":"30px", "marginLeft":"5%"}, onChange: function (ev){
-													var oldName = ev.target.old; var newName = ev.target.value;
-													ev.target.old = newName;
-													/*changedSchema.attributes[oldName].name = newName; changedSchema.attributes[newName] = changedSchema.attributes[oldName];
-													delete changedSchema.attributes[oldName];													
-													ev.target.id = newName;
-													for(var key in changedSchema.order) if(changedSchema.order[key] === oldName) changedSchema.order[key] = newName;						
-													for(var key in changedSchema.quantitative_attrs) if(changedSchema.quantitative_attrs[key] === oldName) changedSchema.quantitative_attrs[key] = newName;
-													el.i = newName;*/
-													self.state.originalNames[attr] = newName;
+									React.createElement("input", {type: "text", id: attr, old: attr, defaultValue: attr, style: {"border":"1px solid #CCCCCC", "width":"50%", "min-width":"20%", "height":"30px", "marginLeft":"5%"}, onChange: function (ev){
+												var oldName = ev.target.old; var newName = ev.target.value;
+												ev.target.old = newName;
+												if(fixedColumns.indexOf(attr) != -1){
+													ev.target.style.border = "3px solid #FF0000";
+													if(fixedColumnsCurrent.indexOf(attr) == -1) fixedColumnsCurrent.push(attr);
+													document.getElementById("warningFixedColumns").style.display = "inline";
+													document.getElementById("warningFixedColumns").innerHTML = "Is not recommended to rename the attributes '" + fixedColumnsCurrent.join("', '") + "'. If you rename these attributes, is probably that the tool doesn't work correctly";												
 												}
-											}), 
-										React.createElement("select", {id: "sel"+attr, style: {"background": "#428bca", "color": "#fff", "width":"25%", "height":"30px", "marginLeft":"2%", "borderRadius": "4px"}, onChange: function (ev){
-													currentAttributes[attr].attribute_type = ev.target.value;
-												}
-											}, 
-												attributeTypes.map(function(attrType, j){
-														if(currentAttributes[attr].attribute_type.toLowerCase() == attrType.toLowerCase()) return ( React.createElement("option", {value: attrType, selected: true}, " ", attrType, " ") );
-														else return ( React.createElement("option", {value: attrType}, " ", attrType, " ") );
+												if(newName == attr){
+													ev.target.style.border = "1px solid #CCCCCC";
+													if(fixedColumnsCurrent.indexOf(attr) != -1){
+														fixedColumnsCurrent.splice(fixedColumnsCurrent.indexOf(attr), 1);
+														if(fixedColumnsCurrent.length == 0) document.getElementById("warningFixedColumns").style.display = "none";
+														else document.getElementById("warningFixedColumns").innerHTML = "Is not recommended to rename the attributes '" + fixedColumnsCurrent.join("', '") + "'. If you rename these attributes, is probably that the tool doesn't work correctly";
 													}
-												)
-										)
+												}
+												/*changedSchema.attributes[oldName].name = newName; changedSchema.attributes[newName] = changedSchema.attributes[oldName];
+												delete changedSchema.attributes[oldName];													
+												ev.target.id = newName;
+												for(var key in changedSchema.order) if(changedSchema.order[key] === oldName) changedSchema.order[key] = newName;						
+												for(var key in changedSchema.quantitative_attrs) if(changedSchema.quantitative_attrs[key] === oldName) changedSchema.quantitative_attrs[key] = newName;
+												el.i = newName;*/
+											self.state.originalNames[attr] = newName;
+											}
+										}), 
+									React.createElement("select", {id: "sel"+attr, style: {"background": "#428bca", "color": "#FFF", "width":"25%", "height":"30px", "marginLeft":"2%", "borderRadius": "4px"}, onChange: function (ev){
+												currentAttributes[attr].attribute_type = ev.target.value;
+											}
+										}, 
+											attributeTypes.map(function(attrType, j){
+													if(currentAttributes[attr].attribute_type.toLowerCase() == attrType.toLowerCase()) return ( React.createElement("option", {value: attrType, selected: true}, " ", attrType, " ") );
+													else return ( React.createElement("option", {value: attrType}, " ", attrType, " ") );
+												}
+											)
 									)
 								)
+							)
 						)
 				);
 			}
@@ -26155,7 +26223,8 @@
 									}}, 
 									this.props), 
 										_.map(this.state.items, createElement)
-								)
+								), 
+								React.createElement("span", {id: "warningFixedColumns", style: {"display":"none", "color":"#FF0000"}}, "It is not recommended to rename attributes")		
 							)	
 						)	
 					);
@@ -26485,6 +26554,25 @@
 		    this.createChart(container, props, state);
 		    return null
 		};
+
+		var defaultColor = "rgb(49, 130, 189)";
+		var defaultWidth = "3px";
+		var defaultOpacity = .5;
+
+		d3.selection.prototype.moveToFront = function() {
+			return this.each(function(){
+				this.parentNode.appendChild(this);
+			});
+		};
+		d3.selection.prototype.moveToBack = function() {  
+			return this.each(function() { 
+				var firstChild = this.parentNode.firstChild; 
+				if (firstChild) { 
+					this.parentNode.insertBefore(this, firstChild); 
+				} 
+			});
+		};
+
 		var self = this;
 		var nanMargin = 50;
 		var margin = props.margin;
@@ -26504,21 +26592,67 @@
 		var svg = d3.select(container).select("svg > g")
 		    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
+
+		var toggleColor = (function(){
+			var current = d3.select(this).style("stroke").toString() == defaultColor;
+			var currentColor = current ? props.active_color : defaultColor;
+			var currentWidth = current ? "7px" : defaultWidth;
+			var currentOpacity = current ? 1 : defaultOpacity;
+			d3.select(this).style("stroke", currentColor).style("stroke-opacity", currentOpacity);//.style("stroke-width", currentWidth).style("stroke-opacity", currentOpacity);
+			d3.select(this).moveToFront();
+			/*COLOREAR SEGUN EL VALOR DE Patient*
+			var patientThis = d3.select(this)[0][0].__data__.Patient;
+			d3.selectAll("path").each(function(d) {
+				if(patientThis == d.Patient){
+					d3.select(this).style("stroke", currentColor).style("stroke-opacity", currentOpacity);
+					d3.select(this).moveToFront();
+				}
+			});*/
+		});
+		var toggleColorMove = (function(d){
+			d3.select(this).style("stroke-opacity", 1);
+		});
+		var toggleColorOut = (function(){
+			if(d3.select(this).style("stroke").toString() == defaultColor) d3.select(this).style("stroke-opacity", defaultOpacity);
+		});
+
 		// Add foreground lines.
 		var foreground = svg.select("g.foreground");
 		var foregroundLines = foreground.selectAll("path")
 		  .data(props.data, function(d){return d[props.index];});
 		foregroundLines.enter().append("path");
 		foregroundLines.attr("d", path)
+			.style("stroke-width", defaultWidth)
 	//	    .attr("class", function(d) {return d.patient;})
-		    .attr("title", function(d) {return d[props.index];});
+		    .attr("title", function(d) {return d[props.index];})
+			.on("click", toggleColor)
+			.on("mouseover", toggleColorMove)
+			.on("mouseout", toggleColorOut);
+			/*.on("click", function(evt) {
+					var root = document.getElementsByTagName("svg");
+					console.log("svg", svg.node());
+					var rpos = root.createSVGRect();
+					rpos.x = evt.clientX;
+					rpos.y = evt.clientY;
+					rpos.width = rpos.height = 1;
+					var list = root.getIntersectionList(rpos, null);
+					console.log(list);
+
+					console.log("mousePositionnn", mousePosition);   
+					d3.selectAll("path").each(function(d) {
+						var mousePositionn = d3.mouse(this);
+	  					console.log("EEEEEEEE", mousePositionn, this); // Logs the element attached to d.
+					});
+				});*/
+		//if(props.active_color != undefined) foregroundLines.style("stroke", props.active_color);
 		foregroundLines.exit().remove();
+
 
 		var brushes = this._brushes(scales, props.attributes, props.onBrush, foreground);
 
 		// Add a group element for each trait.
 		var coordinates = svg.selectAll(".coordinate")
-			.data(_.pluck(props.attributes, "name"), function(d){return d;});
+			.data(_.pluck(props.attributes, "name"), function(d){ return d;});
 		coordinates.enter().append("g").attr("class", "coordinate")
 			.call(function(g) {
 			    // Add an axis and title.
@@ -26526,7 +26660,7 @@
 				.attr("class", "axis")
 			      .append("text")
 				.attr("text-anchor", "middle")
-				.attr("class", "dimension") ;})
+				.attr("class", "dimension");})
 
 			.call(function(g) {
 			    // Add a brush for each axis.
@@ -26548,6 +26682,32 @@
 			.attr("x", -8)
 			.attr("width", 16);
 		this._humanizeCoordinateLabels(coordinates.selectAll("text.dimension"), props.attributes);
+		
+		d3.selectAll("g").each(function(d) {
+				var attrName = d3.select(this.parentNode)[0][0].__data__;	
+				if(attrName != null) {
+					var pathsToPaint = [];
+					var attrValue = d;
+					var color = defaultColor;
+					var opacity = defaultOpacity;
+					d3.select(this).on("click", function(){
+						d3.selectAll("path").each(function(d2) {
+							if(attrValue == d2[attrName] && attrValue != null){
+								if(d3.select(this).style("stroke").toString() == defaultColor){
+									color = props.active_color;
+									opacity = 1;
+								}
+								pathsToPaint.push(d3.select(this));
+							}
+						});
+						for(var i=0; i<pathsToPaint.length; i++){
+							pathsToPaint[i].style("stroke", color).style("stroke-opacity", opacity);
+							pathsToPaint[i].moveToFront();
+						}
+					});
+				}
+		});
+
 		coordinates.exit().remove();
 
 
@@ -26584,7 +26744,7 @@
 		    x.range()[dragState.i] = d3.event.x;
 		    attributes.sort(function(a, b) { return x(a.name) - x(b.name); });
 		    g.attr("transform", function(d) { return "translate(" + x(d) + ")"; });
-		    foregroundLines.attr("d", path);
+		    foregroundLines.attr("d", path);//.style("stroke", "red");
 		};
 	    },
 
@@ -26668,7 +26828,8 @@
 		    foreground.selectAll("path")
 			.attr('display', function(d) {
 			    var isInside = actives.every(function(dim) {
-				    //TODO: CATEGORICAL: console.log(extents[dim][0], "<=", d[dim], "&&",  d[dim], "<=" , extents[dim][1]);
+				    //TODO: CATEGORICAL: 
+					console.log(extents[dim][0], "<=", d[dim], "&&",  d[dim], "<=" , extents[dim][1]);
 				    return extents[dim][0] <= d[dim] && d[dim] <= extents[dim][1];
 				});
 			    return isInside ? null : 'none';
@@ -26684,14 +26845,14 @@
 		return function (d) {
 		    return line(_.pluck(attributes, "name")
 				.map(function(a) {
-				    var y = scales.y[a](d[a])
+				    var y = scales.y[a](d[a])				
 				    return [scales.x(a), !isNaN(y) ? y : nanY ]; }));
 		};
 	    },
 
 	    _humanizeCoordinateLabels: function(textSelection, attributes) {
-		textSelection.text(function(d){return _.capitalize(String(d));});
-		textSelection.transition().attr("y", function(d,i){return (_.findIndex(attributes, {name:d}) %2)? -9 : -27;});
+		textSelection.text(function(d){ return _.capitalize(String(d));}).append("svg:title").text(function(d){ return _.capitalize(String(d));});
+		textSelection.transition().attr("y", function(d,i){ return (_.findIndex(attributes, {name:d}) %2) ? -9 : -27;});
 	    }
 
 	};
@@ -27189,22 +27350,31 @@
 	    cleanChart: function(container, props, state){},
 	    update: function(container, nextProps, nextState){
 
+		console.log("nextProps:", nextProps);
+		function getInfoByIndex(index) { return _.filter(nextProps.data, function(obj){ return index == obj.index }); }
+
 		var chart = c3.generate({
 		    bindto: container,
 		    size: {
 			height: nextProps.height,
 			width: nextProps.width
 		    },
-	//	    tooltip: {
-	//		  contents: function (d, defaultTitleFormat, defaultValueFormat, color) {
-	//		      return '<div class="c3-tooltip">' + JSON.stringify(d) + '</div>';
-	//		  }
-	//	    },
+		    tooltip: {
+			  contents: function (d, defaultTitleFormat, defaultValueFormat, color) {
+			      //return JSON.stringify(d);
+				  var info = getInfoByIndex(d[0].index)[0];
+				  var result = {};
+				  result[nextProps.xColumn] = info.x;
+				  result[nextProps.yColumn] = info.y;
+				  if(info.patient != null) return '<font size="1"><table> <tr> <th bgcolor="#2E8B57" colspan="2" style="border:1px solid #CCCCCC; text-align: center; padding:2px;"><font color="#FFFFFF">Patient - '+info.patient+'</font></th> </tr> <tr> <td bgcolor="#DDDDDD" style="border:1px solid #CCCCCC; padding:2px;">'+nextProps.xColumn+'</td> <td style="border:1px solid #CCCCCC; padding:2px;"><b>'+info.x+'</b></td> </tr> <tr> <td bgcolor="#DDDDDD" style="border:1px solid #CCCCCC; padding:2px;">'+nextProps.yColumn+'</td> <td style="border:1px solid #CCCCCC; padding:2px;"><b>'+info.y+'</b></td> </tr></table></font>';
+				  else return '<font size="1"><table> <td bgcolor="#DDDDDD" style="border:1px solid #CCCCCC; padding:2px;">'+nextProps.xColumn+'</td> <td style="border:1px solid #CCCCCC; padding:2px;"><b>'+info.x+'</b></td> </tr> <tr> <td bgcolor="#DDDDDD" style="border:1px solid #CCCCCC; padding:2px;">'+nextProps.yColumn+'</td> <td style="border:1px solid #CCCCCC; padding:2px;"><b>'+info.y+'</b></td> </tr></table></font>';
+				}
+		    },
 		    data: {
-			type: "scatter",
-			json: nextProps.data,
-			keys: {x: 'x', value:['y']},
-			names: {x: nextProps.xColumn, y: nextProps.yColumn}
+				type: "scatter",
+				json: nextProps.data,
+				keys: {x: 'x', value:['y']},
+				names: {x: nextProps.xColumn, y: nextProps.yColumn}
 		    },
 		    axis: {
 			x: {

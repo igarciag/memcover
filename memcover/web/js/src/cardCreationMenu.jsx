@@ -393,10 +393,10 @@ var ScatterMenu = React.createClass({
     getInitialState: function() {
 	var table = this.props.table || this.props.options.tables[0];
 	
-	if(Object.keys(this.props.options.columns[table]).length <= 1){
+	/*if(Object.keys(this.props.options.columns[table]).length <= 1){
 		alert("Please, open a data file\n");
 		return {};
-	}
+	}*/
 
 	return {
 	    table: table,

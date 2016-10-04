@@ -135,7 +135,7 @@ module.exports = {
 			.attr("class", "axis")
 		      .append("text")
 			.attr("text-anchor", "middle")
-			.attr("class", "dimension") ;})
+			.attr("class", "dimension");})
 
 		.call(function(g) {
 		    // Add a brush for each axis.
@@ -326,7 +326,7 @@ module.exports = {
     },
 
     _humanizeCoordinateLabels: function(textSelection, attributes) {
-	textSelection.text(function(d){ return _.capitalize(String(d));});
+	textSelection.text(function(d){ return _.capitalize(String(d));}).append("svg:title").text(function(d){ return _.capitalize(String(d));});
 	textSelection.transition().attr("y", function(d,i){ return (_.findIndex(attributes, {name:d}) %2) ? -9 : -27;});
     }
 
